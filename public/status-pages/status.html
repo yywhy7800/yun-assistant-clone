@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>地块状态</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html {
+      overflow-x: hidden;
+    }
+    body {
+      overflow-x: hidden;
+      width: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0ebe0;
+      color: #323233;
+      min-height: 100vh;
+    }
+
+    /* 汇总栏 */
+    .summary {
+      display: flex;
+      gap: 8px;
+      padding: 10px 12px;
+      background: #fff8ee;
+      border-bottom: 1px solid #e8dcc8;
+      flex-wrap: wrap;
+    }
+    .summary-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: #666;
+    }
+    .dot {
+      width: 10px; height: 10px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+    .dot-free    { background: #b5956a; }
+    .dot-water   { background: #4fc3f7; }
+    .dot-wait    { background: #ffb74d; }
+    .dot-ready   { background: #66bb6a; }
+
+    /* 品质筛选按钮 */
+    .filter-bar {
+      display: flex;
+      gap: 4px;
+      padding: 6px 10px;
+      background: #fff8ee;
+      border-bottom: 1px solid #e8dcc8;
+      align-items: center;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .filter-bar::-webkit-scrollbar { display: none; }
+    .filter-label { font-size: 11px; color: #888; margin-right: 2px; white-space: nowrap; flex-shrink: 0; }
+    .filter-btn {
+      padding: 3px 8px;
+      border-radius: 12px;
+      border: 1px solid #ccc;
+      font-size: 12px;
+      cursor: pointer;
+      background: #fff;
+      color: #555;
+      transition: all 0.15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .filter-btn.active { border-color: transparent; color: #fff; font-weight: 600; }
+    .filter-btn[data-q="0"].active  { background: #b5956a; }
+    .filter-btn[data-q="1"].active  { background: #9e9e9e; }
+    .filter-btn[data-q="2"].active  { background: #66bb6a; }
+    .filter-btn[data-q="3"].active  { background: #42a5f5; }
+    .filter-btn[data-q="4"].active  { background: #ab47bc; }
+    .filter-btn[data-q="5"].active  { background: #ef9a2a; }
+
+    /* 地块网格 */
+    .grid-wrap {
+      padding: 8px;
+      box-sizing: border-box;
+      width: 100%;
+      overflow: hidden;
+    }
+    .grid {
+      display: grid;
+      gap: 2px;
+      box-sizing: border-box;
+    }
+    .grid-divider {
+      background: transparent;
+    }
+    .cell {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.1s, box-shadow 0.1s;
+      user-select: none;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .cell:active { transform: scale(0.93); }
+    .cell-id {
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.7);
+      line-height: 1;
+    }
+    .cell-name {
+      font-size: 9px;
+      color: rgba(255,255,255,0.85);
+      margin-top: 2px;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding: 0 2px;
+      text-align: center;
+    }
+    .cell-countdown {
+      font-size: 9px;
+      color: rgba(255,255,255,0.75);
+      margin-top: 1px;
+      line-height: 1;
+    }
+
+    /* 地块颜色：state */
+    .cell     { background: #b5956a; }          /* 保底：酱色（未知state也显示空地色） */
+    .state-0  { background: #b5956a; }          /* 空地：酱色 */
+    .state-1  { background: #4fc3f7; }          /* 浇水中：天蓝 */
+    .state-2  { background: #ffb74d; }          /* 待成熟：橙 */
+    .state-3  { background: #66bb6a; }          /* 可收获：绿 */
+
+    /* 品质叠加边框 */
+    .q-0 { box-shadow: none; }
+    .q-1 { box-shadow: 0 0 0 2px #9e9e9e; }   /* 凡 灰 */
+    .q-2 { box-shadow: 0 0 0 2px #66bb6a; }   /* 普 绿 */
+    .q-3 { box-shadow: 0 0 0 2px #42a5f5; }   /* 珍 蓝 */
+    .q-4 { box-shadow: 0 0 0 2px #ab47bc; }   /* 华 紫 */
+    .q-5 { box-shadow: 0 0 0 2px #ef9a2a; }   /* 仙 金 */
+
+    /* 未解锁格子 */
+    .cell-locked { background: #c8b89a !important; cursor: default; }
+    .cell-locked-icon {
+      font-size: 16px;
+      color: rgba(255,255,255,0.45);
+      margin-top: 2px;
+      line-height: 1;
+    }
+    .cell-locked .cell-id { color: rgba(255,255,255,0.35); }
+
+    /* dimmed（被筛选隐藏） */
+    .cell.dimmed { opacity: 0.2; pointer-events: none; }
+
+    /* 右上角品质角标 */
+    .q-badge {
+      position: absolute;
+      top: 2px; right: 3px;
+      font-size: 9px;
+      font-weight: 700;
+      line-height: 1;
+      color: rgba(255,255,255,0.9);
+    }
+
+    /* Tooltip */
+    .tooltip {
+      position: fixed;
+      z-index: 9999;
+      background: rgba(0,0,0,0.82);
+      color: #fff;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 12px;
+      line-height: 1.8;
+      max-width: 200px;
+      pointer-events: none;
+      display: none;
+    }
+    .tooltip.show { display: block; }
+    .tooltip-row { display: flex; justify-content: space-between; gap: 12px; }
+    .tooltip-label { color: #aaa; }
+    .tooltip-val { color: #fff; font-weight: 500; }
+
+    /* 加载遮罩 */
+    .loading-mask {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(240, 235, 224, 0.92);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+    .loading-mask.hidden { display: none; }
+    .loading-spinner {
+      width: 36px; height: 36px;
+      border: 3px solid #e0d0bc;
+      border-top-color: #b5956a;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    .loading-mask-text {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #9a7a5a;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 加载 / 错误 */
+    .full-tip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      font-size: 14px;
+      color: #888;
+    }
+    .refresh-btn {
+      margin: 8px auto 0;
+      display: block;
+      padding: 6px 20px;
+      background: #b5956a;
+      color: #fff;
+      border: none;
+      border-radius: 20px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    /* 刷新时间 */
+    .refresh-info {
+      text-align: center;
+      font-size: 11px;
+      color: #aaa;
+      padding: 4px 0 8px;
+    }
+
+    /* 统计/道具面板 */
+    .panel {
+      margin: 8px 10px;
+      background: #fff8ee;
+      border-radius: 8px;
+      border: 1px solid #e8dcc8;
+      overflow: hidden;
+    }
+    .panel-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #7a5c3a;
+      padding: 7px 12px 5px;
+      border-bottom: 1px solid #e8dcc8;
+      background: #f5ede0;
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .panel-title .toggle-arrow { color: #aaa; font-style: normal; font-size: 11px; }
+    .panel-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0;
+    }
+    .panel-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 12px;
+      border-bottom: 1px solid #f0e8d8;
+      font-size: 12px;
+    }
+    .panel-item:nth-last-child(-n+2) { border-bottom: none; }
+    .panel-label { color: #888; }
+    .panel-val { color: #323233; font-weight: 600; }
+
+    /* 订单列表面板 */
+    .order-list { padding: 4px 0; }
+    .order-item {
+      padding: 6px 12px;
+      border-bottom: 1px solid #f0e8d8;
+      font-size: 12px;
+    }
+    .order-item:last-child { border-bottom: none; }
+    .order-flowers {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 3px;
+    }
+    .order-flower-tag {
+      background: #f5ede0;
+      border: 1px solid #e8d5c0;
+      border-radius: 10px;
+      padding: 1px 8px;
+      font-size: 11px;
+      color: #7a5c3a;
+    }
+    .order-cd {
+      font-size: 11px;
+      color: #aaa;
+    }
+    .order-cd.ready { color: #66bb6a; font-weight: 600; }
+    .order-cd.soon { color: #ff9800; }
+    .customer-order-info {
+      display: flex;
+      justify-content: space-between;
+      padding: 7px 12px;
+      font-size: 12px;
+    }
+    .customer-order-info .panel-label { color: #888; }
+    .customer-order-info .panel-val { color: #323233; font-weight: 600; }
+    .customer-next-time {
+      padding: 4px 12px 8px;
+      font-size: 11px;
+      color: #9a7a5a;
+      text-align: center;
+    }
+    .empty-tip {
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #bbb;
+      text-align: center;
+    }
+    .order-npc {
+      font-size: 11px;
+      color: #9a7a5a;
+      margin-bottom: 3px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .order-video-tag {
+      background: #ff7043;
+      color: #fff;
+      border-radius: 8px;
+      padding: 0 5px;
+      font-size: 10px;
+    }
+    .customer-order-list { padding: 0 0 4px; }
+    .customer-order-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 12px;
+      border-bottom: 1px solid #f0e8d8;
+      font-size: 12px;
+    }
+    .customer-order-item:last-child { border-bottom: none; }
+    .customer-order-name { color: #323233; }
+    .customer-order-num { color: #9a7a5a; font-size: 11px; }
+
+    /* 莳花纪闻面板 */
+    .shihua-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 12px;
+      border-bottom: 1px solid #f0e8d8;
+      font-size: 12px;
+    }
+    .shihua-order-list { padding: 4px 0; }
+    .shihua-order-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 12px;
+      border-bottom: 1px solid #f0e8d8;
+      font-size: 12px;
+    }
+    .shihua-order-item:last-child { border-bottom: none; }
+    .shihua-order-item.ready { background: #f1f8e9; }
+    .shihua-order-item.waiting { opacity: 0.6; }
+    .shihua-order-name { color: #323233; }
+    .shihua-order-status { font-size: 11px; color: #9a7a5a; white-space: nowrap; margin-left: 8px; }
+    .shihua-order-status.ready { color: #4caf50; font-weight: 600; }
+
+    /* 珍珠雇佣面板 */
+    .pearl-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 12px;
+      border-bottom: 1px solid #f0e8d8;
+      font-size: 12px;
+    }
+    .pearl-row:last-child { border-bottom: none; }
+    .pearl-places {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      padding: 8px;
+    }
+    .pearl-place-item {
+      display: flex;
+      flex-direction: column;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1.5px solid #c8a87a;
+      background: #f5ede0;
+      font-size: 11px;
+    }
+    .pearl-place-item.hired { border-color: #4caf50; background: #f0f8f0; }
+    .pearl-place-item.locked { border-color: #ddd; background: #f5f5f5; opacity: 0.6; }
+    .pearl-place-id { font-size: 10px; color: #9a7a5a; font-weight: 600; margin-bottom: 2px; }
+    .pearl-place-val { color: #323233; }
+    .pearl-place-sub { font-size: 10px; color: #9a7a5a; margin-top: 2px; }
+
+    /* 公会竞赛任务面板 */
+    .race-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 12px;
+      border-bottom: 1px solid #f0e8d8;
+      font-size: 12px;
+    }
+    .race-score { font-weight: 600; color: #7a5c3a; }
+    .race-meta { color: #9a7a5a; font-size: 11px; }
+    .race-taking {
+      margin: 8px 12px 6px;
+      padding: 6px 10px;
+      background: #fff3e0;
+      border: 1px solid #ffe0b2;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .race-taking-label { font-size: 11px; color: #9a7a5a; margin-bottom: 4px; }
+    .race-taking-name { font-weight: 600; color: #323233; margin-bottom: 2px; }
+    .race-taking-progress { color: #7a5c3a; font-size: 11px; }
+    .race-taking-empty { color: #aaa; font-size: 12px; }
+    .race-task-list {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      padding: 8px;
+    }
+    .race-task-item {
+      display: flex;
+      flex-direction: column;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1.5px solid #c8a87a;
+      background: #f5ede0;
+      font-size: 11px;
+      min-height: 72px;
+      word-break: break-all;
+    }
+    .race-task-item.can-take { border-color: #4caf50; border-width: 2px; background: #f0f8f0; }
+    .race-task-item.taken-by-me { border-color: #ff9800; border-width: 2px; background: #fff8ee; }
+    .race-task-item.taken-by-other { border-color: #e53935; border-width: 2px; opacity: 0.7; }
+    .race-task-item.blocked { opacity: 0.5; }
+    .race-task-grid-id {
+      font-size: 10px;
+      color: #9a7a5a;
+      font-weight: 600;
+      margin-bottom: 2px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 2px;
+    }
+    .race-task-name { color: #323233; flex: 1; font-size: 10px; line-height: 1.35; }
+    .race-task-score { color: #7a5c3a; font-size: 10px; font-weight: 600; margin-top: 3px; }
+    .race-task-reason { font-size: 9px; color: #aaa; margin-top: 2px; }
+    .race-next-time { padding: 5px 12px 6px; font-size: 11px; color: #9a7a5a; text-align: center; }
+    .race-badge {
+      display: inline-block;
+      padding: 0 3px;
+      border-radius: 8px;
+      font-size: 9px;
+      margin-left: 2px;
+    }
+    .race-badge-upgrade { background: #ff9800; color: #fff; border: none; }
+    .race-badge-sys-upgrade { background: #ef6c00; color: #fff; border: none; }
+    .race-badge-self-upgrade { background: #7b1fa2; color: #fff; border: none; }
+    .race-badge-other-upgrade { background: #1565c0; color: #fff; border: none; }
+    .race-badge-cd { background: #bbb; color: #fff; border: none; }
+    .race-badge-me { background: #66bb6a; color: #fff; border: none; }
+    .race-badge-cantake { background: #4caf50; color: #fff; border: none; }
+    .race-badge-taken { background: #e57373; color: #fff; border: none; }
+
+    /* 花卉库存面板 */
+    .flower-stock-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+      padding: 8px;
+    }
+    .flower-stock-item {
+      position: relative;
+      background: #f5ede0;
+      border: 1px solid #e8d5c0;
+      border-radius: 6px;
+      padding: 6px 4px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+    }
+    .flower-stock-name {
+      font-size: 11px;
+      color: #7a5c3a;
+      text-align: center;
+      word-break: break-all;
+      line-height: 1.3;
+    }
+    .flower-stock-num {
+      position: absolute;
+      bottom: 3px;
+      right: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #323233;
+    }
+    .fs-toggle-arrow {
+      float: right;
+      font-style: normal;
+      color: #aaa;
+    }
+    #panelFlowerStock .panel-title { cursor: pointer; user-select: none; display: block; }
+    .fs-sort-bar { display: flex; gap: 6px; padding: 4px 8px 0; }
+    .fs-sort-btn { font-size: 11px; padding: 2px 8px; border-radius: 10px; border: 1px solid #ddd; background: #fff; color: #888; cursor: pointer; }
+    .fs-sort-btn.active { background: #667eea; color: #fff; border-color: #667eea; }
+  </style>
+</head>
+<body>
+
+<div id="loadingMask" class="loading-mask">
+  <div class="loading-spinner"></div>
+  <div class="loading-mask-text">加载中...</div>
+</div>
+<div id="main" style="display:none">
+  <div class="summary" id="summary"></div>
+  <div class="filter-bar" id="filterBar">
+    <span class="filter-label">品质筛选：</span>
+    <button class="filter-btn active" data-q="0" onclick="setFilter(0)">全部</button>
+    <button class="filter-btn" data-q="1" onclick="setFilter(1)">凡</button>
+    <button class="filter-btn" data-q="2" onclick="setFilter(2)">普</button>
+    <button class="filter-btn" data-q="3" onclick="setFilter(3)">珍</button>
+    <button class="filter-btn" data-q="4" onclick="setFilter(4)">华</button>
+    <button class="filter-btn" data-q="5" onclick="setFilter(5)">仙</button>
+  </div>
+  <div class="grid-wrap">
+    <div class="grid" id="grid"></div>
+  </div>
+  <div class="panel" id="panelItems" style="display:none">
+    <div class="panel-title" onclick="togglePanel(this)">道具持有<i class="toggle-arrow">▼</i></div>
+    <div class="panel-grid" id="itemsGrid"></div>
+  </div>
+  <div class="panel" id="panelFlowerStock" style="display:none">
+    <div class="panel-title" onclick="toggleFlowerStock()">
+      花卉库存
+      <i class="fs-toggle-arrow" id="fsArrow">◀</i>
+      <span id="flowerStockTotal" style="float:right;color:#aaa;font-weight:400;margin-right:8px"></span>
+    </div>
+    <div class="fs-sort-bar" style="display:none">
+      <button class="fs-sort-btn active" id="fsSortStock" onclick="setFsSort('stock')">按数量</button>
+      <button class="fs-sort-btn" id="fsSortQuality" onclick="setFsSort('quality')">按品质</button>
+    </div>
+    <div class="flower-stock-grid" id="flowerStockGrid" style="display:none"></div>
+  </div>
+  <div class="panel" id="panelStats" style="display:none">
+    <div class="panel-title" onclick="togglePanel(this)">今日统计<i class="toggle-arrow">▼</i></div>
+    <div class="panel-grid" id="statsGrid"></div>
+  </div>
+  <div class="panel" id="panelFlowerOrder" style="display:none">
+    <div class="panel-title" onclick="togglePanel(this)">居民订单<i class="toggle-arrow">▼</i></div>
+    <div class="order-list" id="flowerOrderList"></div>
+  </div>
+  <div class="panel" id="panelSatinOrder" style="display:none">
+    <div class="panel-title" onclick="togglePanel(this)">绸缎订单<i class="toggle-arrow">▼</i></div>
+    <div class="order-list" id="satinOrderList"></div>
+  </div>
+  <div class="panel" id="panelDecorateOrder" style="display:none">
+    <div class="panel-title" onclick="togglePanel(this)">建材订单<i class="toggle-arrow">▼</i></div>
+    <div class="order-list" id="decorateOrderList"></div>
+  </div>
+  <div class="panel" id="panelCustomerOrder" style="display:none">
+    <div class="panel-title" onclick="togglePanel(this)">顾客订单<i class="toggle-arrow">▼</i></div>
+    <div id="customerOrderBody"></div>
+  </div>
+  <div class="panel" id="panelShihuaNews" style="display:none">
+    <div class="panel-title" onclick="togglePanel(this)">莳花纪闻<i class="toggle-arrow">▼</i></div>
+    <div id="shihuaNewsBody"></div>
+  </div>
+  <div class="panel" id="panelPearl" style="display:none">
+    <div class="panel-title" onclick="togglePanel(this)">珍珠雇佣<i class="toggle-arrow">▼</i></div>
+    <div id="pearlBody"></div>
+  </div>
+  <div class="panel" id="panelFmlRace" style="display:none">
+    <div class="panel-title" onclick="togglePanel(this)">公会竞赛任务<i class="toggle-arrow">▼</i></div>
+    <div id="fmlRaceBody"></div>
+  </div>
+  <div class="refresh-info" id="refreshInfo"></div>
+</div>
+<div id="error" style="display:none">
+  <div class="full-tip" id="errorMsg"></div>
+  <button class="refresh-btn" onclick="loadStatus()">重试</button>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+  var scriptInfo = null;
+  var landData = null;
+  var currentFilter = 0;
+  var Q_NAME = ['', '凡', '普', '珍', '华', '仙'];
+  var STATE_NAME = ['未种植', '待浇水', '待成熟', '可收获'];
+
+  function initStatusPage(info) {
+    scriptInfo = info;
+    loadStatus();
+  }
+
+  function loadStatus() {
+    if (!scriptInfo || !scriptInfo.nodeIp) {
+      showError('节点信息不可用');
+      return;
+    }
+    // 立即显示 loading 遮罩，隐藏旧内容
+    document.getElementById('loadingMask').classList.remove('hidden');
+    document.getElementById('main').style.display = 'none';
+    document.getElementById('error').style.display = 'none';
+    var url = 'http://' + scriptInfo.nodeIp + ':' + scriptInfo.nodePort + '/game/state/' + scriptInfo.scriptId;
+    fetch(url)
+      .then(function(r) { return r.json(); })
+      .then(function(result) {
+        if (result.code === 200) {
+          landData = result.land;
+          render(result);
+        } else {
+          showError(result.msg || '获取状态失败');
+        }
+      })
+      .catch(function() {
+        showError('无法连接节点服务器');
+      });
+  }
+
+  function render(result) {
+    var land = result.land;
+    if (!land) { showError('地块数据不可用'); return; }
+    document.getElementById('loadingMask').classList.add('hidden');
+    document.getElementById('error').style.display = 'none';
+    document.getElementById('main').style.display = 'block';
+
+    // 汇总：空地从details重新统计（state=-1和state=0均为空地）
+    var details = land.details || [];
+    var freeCount = details.filter(function(d) { return d.state === 0 || d.state === -1; }).length;
+    var s = document.getElementById('summary');
+    s.innerHTML =
+      '<div class="summary-item"><span class="dot dot-free"></span>空地 ' + freeCount + '</div>' +
+      '<div class="summary-item"><span class="dot dot-water"></span>待浇水 ' + land.watering + '</div>' +
+      '<div class="summary-item"><span class="dot dot-wait"></span>待成熟 ' + land.waitHarvest + '</div>' +
+      '<div class="summary-item"><span class="dot dot-ready"></span>可收获 ' + land.harvestReady + '</div>' +
+      '<div class="summary-item" style="margin-left:auto;color:#aaa">共 ' + land.total + ' 块</div>';
+
+    // 按 landId 建索引方便查找
+    var landMap = {};
+    (land.details || []).forEach(function(d) {
+      landMap[parseInt(d.landId)] = d;
+    });
+
+    // 找出 landId 的最小值作为起始编号（如 1001）
+    var allIds = Object.keys(landMap).map(Number).sort(function(a,b){return a-b;});
+    var startId = allIds.length > 0 ? allIds[0] : 1;
+    var COLS = 4;
+    var LEFT  = 32; // 左组固定32格（游戏固定分组）
+    var ROWS  = 8;
+    // 用实际 landMap 里最大的 id 作为边界（比 total 更可靠）
+    var maxId = allIds.length > 0 ? allIds[allIds.length - 1] : (startId + 63);
+
+    var grid = document.getElementById('grid');
+    grid.innerHTML = '';
+    grid.style.gridTemplateColumns = 'repeat(4, 1fr) 6px repeat(4, 1fr)';
+    grid.style.gap = '2px';
+
+    for (var row = 0; row < ROWS; row++) {
+      // 左组
+      for (var c = 0; c < COLS; c++) {
+        var id = startId + row * COLS + c;
+        var d = landMap[id];
+        grid.appendChild(d ? makeCell(d) : makeLocked(id));
+      }
+      // 分隔
+      var divEl = document.createElement('div');
+      divEl.className = 'grid-divider';
+      grid.appendChild(divEl);
+      // 右组
+      for (var c = 0; c < COLS; c++) {
+        var id = startId + LEFT + row * COLS + c;
+        var d = landMap[id];
+        grid.appendChild(d ? makeCell(d) : makeLocked(id));
+      }
+    }
+
+    function makeLocked(id) {
+      var el = document.createElement('div');
+      el.className = 'cell cell-locked';
+      el.dataset.quality = 0;
+      el.dataset.state = -1;
+      var idSpan = document.createElement('span');
+      idSpan.className = 'cell-id';
+      idSpan.textContent = id;
+      el.appendChild(idSpan);
+      var x = document.createElement('span');
+      x.className = 'cell-locked-icon';
+      x.textContent = '✕';
+      el.appendChild(x);
+      return el;
+    }
+
+    function makeCell(d) {
+      var cell = document.createElement('div');
+      var q = parseInt(d.flowerQuality) || 0;
+      var st = (d.state !== undefined && d.state !== null) ? parseInt(d.state) : 0;
+      if (st < 0) st = 0;
+      cell.className = 'cell state-' + st + ' q-' + q;
+      cell.dataset.quality = q;
+      cell.dataset.state = st;
+
+      var idSpan = document.createElement('span');
+      idSpan.className = 'cell-id';
+      idSpan.textContent = d.landId;
+      cell.appendChild(idSpan);
+
+      if (st !== 0 && d.flowerName) {
+        var nameSpan = document.createElement('span');
+        nameSpan.className = 'cell-name';
+        nameSpan.textContent = d.flowerName;
+        cell.appendChild(nameSpan);
+      }
+
+      if ((st === 1 || st === 2) && d.nextTime) {
+        var remaining = Math.ceil((d.nextTime - Date.now()) / 60000);
+        if (remaining > 0) {
+          var cdSpan = document.createElement('span');
+          cdSpan.className = 'cell-countdown';
+          cdSpan.textContent = remaining + 'm';
+          cell.appendChild(cdSpan);
+        }
+      }
+
+      if (q >= 1) {
+        var badge = document.createElement('span');
+        badge.className = 'q-badge';
+        badge.textContent = Q_NAME[q] || '';
+        cell.appendChild(badge);
+      }
+
+      cell.addEventListener('click', function(e) { showTooltip(e, d); });
+      return cell;
+    }
+
+    // 花卉库存
+    var fs = result.flowerStock;
+    var panelFS = document.getElementById('panelFlowerStock');
+    if (fs && fs.list && fs.list.length > 0) {
+      panelFS.style.display = 'block';
+      document.getElementById('flowerStockTotal').textContent = '共 ' + fs.total + ' 朵';
+      window._fsRawList = fs.list;
+      renderFsGrid();
+    } else {
+      panelFS.style.display = 'none';
+    }
+
+    // 道具持有
+    var items = result.items;
+    var panelItems = document.getElementById('panelItems');
+    if (items) {
+      panelItems.style.display = 'block';
+      document.getElementById('itemsGrid').innerHTML =
+        pitem('元宝', items.yuanbao) +
+        pitem('金币', items.gold) +
+        pitem('水滴', items.water) +
+        pitem('加速卡', items.speedUp) +
+        pitem('雇佣书', items.hireBook) +
+        pitem('花坊币', items.buaFangBi);
+    } else {
+      panelItems.style.display = 'none';
+    }
+
+    // 今日统计
+    var st = result.statistics;
+    var panelStats = document.getElementById('panelStats');
+    if (st) {
+      panelStats.style.display = 'block';
+      document.getElementById('statsGrid').innerHTML =
+        pitem('金币', st.gld) +
+        pitem('经验', st.exp) +
+        pitem('元宝', st.dmd) +
+        pitem('加速卡', st.speedUpCard) +
+        pitem('绸缎', st.satin) +
+        pitem('花坊币', st.flowerShopCoin) +
+        pitem('建材', st.wood) +
+        pitem('收花朵数', st.flowerHarvestNum) +
+        pitem('花艺出售瓶数', st.flowerArtSellNum) +
+        pitem('居民订单', st.orderFlowerFinishNum) +
+        pitem('绸缎订单', st.orderSatinFinishNum) +
+        pitem('建材订单', st.orderDecorateFinishNum) +
+        pitem('顾客订单', st.orderCustomerFinishNum) +
+        pitem('宫廷特供', st.orderPalaceFinishNum);
+    } else {
+      panelStats.style.display = 'none';
+    }
+
+    // 居民订单
+    var fo = result.flowerOrder;
+    if (fo) {
+      // 居民花朵订单
+      var panelFO = document.getElementById('panelFlowerOrder');
+      var foOrders = fo.orders || [];
+      if (foOrders.length > 0) {
+        panelFO.style.display = 'block';
+        document.getElementById('flowerOrderList').innerHTML = foOrders.map(function(o) {
+          return renderOrderItem(o);
+        }).join('');
+      } else {
+        panelFO.style.display = 'none';
+      }
+      // 绸缎订单
+      var panelSatin = document.getElementById('panelSatinOrder');
+      var satinFlowers = fo.orderSatin && fo.orderSatin.flowers && fo.orderSatin.flowers.length > 0;
+      if (satinFlowers) {
+        panelSatin.style.display = 'block';
+        document.getElementById('satinOrderList').innerHTML = renderOrderItem(fo.orderSatin);
+      } else {
+        panelSatin.style.display = 'none';
+      }
+      // 建材订单
+      var panelDecorate = document.getElementById('panelDecorateOrder');
+      var decorateFlowers = fo.orderDecorate && fo.orderDecorate.flowers && fo.orderDecorate.flowers.length > 0;
+      if (decorateFlowers) {
+        panelDecorate.style.display = 'block';
+        document.getElementById('decorateOrderList').innerHTML = renderOrderItem(fo.orderDecorate);
+      } else {
+        panelDecorate.style.display = 'none';
+      }
+    }
+
+    // 顾客订单
+    var co = result.customerOrder;
+    var panelCO = document.getElementById('panelCustomerOrder');
+    if (co) {
+      panelCO.style.display = 'block';
+      var coHtml = '<div class="customer-order-info">' +
+        '<span class="panel-label">已创建</span><span class="panel-val">' + (co.createCount || 0) + ' 单</span>' +
+        '</div>';
+      if (co.nextGenTime) {
+        var remaining = Math.ceil((co.nextGenTime - Date.now()) / 60000);
+        var nextStr = remaining > 0 ? '约 ' + remaining + ' 分钟后生成' : '即将生成';
+        coHtml += '<div class="customer-next-time">下次生成：' + nextStr + '（' + formatTime(co.nextGenTime) + '）</div>';
+      }
+      var coOrders = co.orders || [];
+      if (coOrders.length > 0) {
+        coHtml += '<div class="customer-order-list">' +
+          coOrders.map(function(o) {
+            return '<div class="customer-order-item">' +
+              '<span class="customer-order-name">' + (o.artName || '花艺') + '</span>' +
+              '<span class="customer-order-num">×' + (o.num || 1) + '</span>' +
+              '</div>';
+          }).join('') +
+          '</div>';
+      }
+      document.getElementById('customerOrderBody').innerHTML = coHtml;
+    } else {
+      panelCO.style.display = 'none';
+    }
+
+    // 莳花纪闻
+    var shn = result.shihuaNews;
+    var panelSHN = document.getElementById('panelShihuaNews');
+    if (shn && shn.active) {
+      panelSHN.style.display = 'block';
+      var shnHtml = '';
+      // 头部：积分 + 结束时间
+      var shnEmsStr = shn.ems ? formatTime(shn.ems) : '-';
+      shnHtml += '<div class="shihua-header">';
+      shnHtml += '<span class="panel-val">积分 ' + (shn.score != null ? shn.score : '-') + '</span>';
+      shnHtml += '<span class="panel-label">' + shnEmsStr + ' 结束</span>';
+      shnHtml += '</div>';
+      // 订单列表
+      var shnOrders = shn.orders || [];
+      if (shnOrders.length > 0) {
+        shnHtml += '<div class="shihua-order-list">';
+        shnOrders.forEach(function(o) {
+          var cls = 'shihua-order-item' + (o.ready ? ' ready' : ' waiting');
+          var statusStr, statusCls;
+          if (o.ready) {
+            var readyStock = o.required ? (o.stock || 0) + '/' + o.required + ' · ' : '';
+            statusStr = readyStock + '✓ 可领取';
+            statusCls = 'shihua-order-status ready';
+          } else if (o.validTime) {
+            var leftMin = Math.ceil((o.validTime - Date.now()) / 60000);
+            var cdStr = leftMin > 0 ? leftMin + '分钟后' : '即将可领';
+            var stockStr = o.required ? (o.stock || 0) + '/' + o.required : '';
+            statusStr = stockStr ? stockStr + ' · ' + cdStr : cdStr;
+            statusCls = 'shihua-order-status';
+          } else {
+            statusStr = o.required ? (o.stock || 0) + '/' + o.required : '-';
+            statusCls = 'shihua-order-status';
+          }
+          shnHtml += '<div class="' + cls + '">';
+          shnHtml += '<span class="shihua-order-name">' + (o.flowerName || '花卉#' + o.flowerId) + '</span>';
+          shnHtml += '<span class="' + statusCls + '">' + statusStr + '</span>';
+          shnHtml += '</div>';
+        });
+        shnHtml += '</div>';
+      }
+      document.getElementById('shihuaNewsBody').innerHTML = shnHtml;
+    } else {
+      panelSHN.style.display = 'none';
+    }
+
+    // 珍珠雇佣
+    var ph = result.pearlHire;
+    var panelPearl = document.getElementById('panelPearl');
+    if (ph) {
+      panelPearl.style.display = 'block';
+      var phHtml = '';
+
+      // 基础信息行（hireState 是客户端计算字段，根据 laborEndTime 判断状态）
+      var myPearl = ph.pearl;
+      var protectStr = ph.protectEnabled ? '已开启' : '未开启';
+      var myStateStr = '空闲中';
+      var endRowHtml = '';
+      if (myPearl && myPearl.laborEndTime) {
+        var endLeft = Math.ceil((myPearl.laborEndTime - Date.now()) / 60000);
+        if (endLeft > 0) {
+          myStateStr = '劳动中';
+          endRowHtml = '<div class="pearl-row"><span class="panel-label">劳动结束</span><span class="panel-val">剩余 ' + endLeft + ' 分钟</span></div>';
+        } else if (endLeft > -30) {
+          myStateStr = '休息中';
+          endRowHtml = '<div class="pearl-row"><span class="panel-label">劳动结束</span><span class="panel-val">刚结束</span></div>';
+        }
+      }
+      phHtml += '<div class="pearl-row"><span class="panel-label">我的珍珠</span><span class="panel-val">' + myStateStr + '</span></div>';
+      phHtml += endRowHtml;
+      phHtml += '<div class="pearl-row"><span class="panel-label">护身符</span><span class="panel-val">' + (ph.protectSymbolNum || 0) + ' 个 / 护身 ' + protectStr + '</span></div>';
+      phHtml += '<div class="pearl-row"><span class="panel-label">今日雇佣</span><span class="panel-val">' + (ph.todayHired || 0) + ' / ' + (ph.hireBookLimit || 0) + ' 次</span></div>';
+      if (ph.hireBookYuanBaoLimit > 0) {
+        phHtml += '<div class="pearl-row"><span class="panel-label">今日买书元宝</span><span class="panel-val">' + (ph.hireBookUsedYuanBao || 0) + ' / ' + ph.hireBookYuanBaoLimit + '</span></div>';
+      }
+
+      // 场地列表
+      var places = ph.places || [];
+      if (places.length > 0) {
+        phHtml += '<div class="pearl-places">';
+        places.forEach(function(p) {
+          var isPlace4 = String(p.placeId) === '4';
+          var locked = isPlace4 && !ph.isVip;
+          var hasLabor = !locked && p.laborUid && p.laborUid !== 0;
+          var cls = 'pearl-place-item' + (locked ? ' locked' : hasLabor ? ' hired' : '');
+          phHtml += '<div class="' + cls + '">';
+          phHtml += '<div class="pearl-place-id">场地 ' + p.placeId + (locked ? ' <span style="color:#bbb">VIP</span>' : '') + '</div>';
+          if (locked) {
+            phHtml += '<div class="pearl-place-val" style="color:#bbb">未开通</div>';
+          } else if (hasLabor) {
+            var placeLeft = p.laborEndTime ? Math.ceil((p.laborEndTime - Date.now()) / 60000) : null;
+            var placeEndStr = placeLeft != null ? (placeLeft > 0 ? placeLeft + '分钟' : '已结束') : '-';
+            phHtml += '<div class="pearl-place-val">雇佣中</div>';
+            phHtml += '<div class="pearl-place-sub">剩余 ' + placeEndStr + '</div>';
+          } else {
+            phHtml += '<div class="pearl-place-val" style="color:#aaa">空闲</div>';
+          }
+          phHtml += '</div>';
+        });
+        phHtml += '</div>';
+      }
+
+      document.getElementById('pearlBody').innerHTML = phHtml;
+    } else {
+      panelPearl.style.display = 'none';
+    }
+
+    // 公会竞赛任务
+    var fr = result.fmlRace;
+    var panelFR = document.getElementById('panelFmlRace');
+    if (fr) {
+      panelFR.style.display = 'block';
+      var frHtml = '';
+
+      // 赛季 + 本人积分
+      var usrRcd = fr.usrRcd;
+      var scoreStr = usrRcd ? usrRcd.score : '-';
+      var batchStr = '';
+      if (fr.batch) {
+        var bd = new Date(fr.batch.batchId);
+        batchStr = '赛季 ' + (bd.getMonth()+1) + '/' + bd.getDate();
+        if (fr.batch.endTime) {
+          var ed = new Date(fr.batch.endTime);
+          batchStr += '（' + (ed.getMonth()+1) + '/' + ed.getDate() + ' ' + ed.getHours() + ':' + pad(ed.getMinutes()) + ' 结束）';
+        }
+      }
+      var fTaskStr = usrRcd ? ('已接' + (usrRcd.fTaskNum || 0) + '/' + (usrRcd.taskLimit || '-') + '次') : '';
+      frHtml += '<div class="race-header-row">';
+      frHtml += '<span class="race-score">积分 ' + scoreStr + '</span>';
+      frHtml += '<span class="race-meta">' + [batchStr, fTaskStr].filter(Boolean).join(' · ') + '</span>';
+      frHtml += '</div>';
+
+      // 当前接取任务（始终显示）
+      var taking = usrRcd && usrRcd.takingTask;
+      frHtml += '<div class="race-taking">';
+      frHtml += '<div class="race-taking-label">当前任务</div>';
+      if (taking && taking.taskId) {
+        var expireLeft = taking.expireTime ? Math.ceil((taking.expireTime - Date.now()) / 60000) : null;
+        var expireStr = expireLeft != null ? (expireLeft > 0 ? '剩余 ' + expireLeft + ' 分钟' : '已过期') : '';
+        frHtml += '<div class="race-taking-name">' + (taking.taskName || '任务#' + taking.taskId) +
+          (taking.isUpgrade === 1 ? '<span class="race-badge race-badge-upgrade">升级</span>' : '') + '</div>';
+        frHtml += '<div class="race-taking-progress">';
+        frHtml += '进度 ' + (taking.finishCnt || 0) + ' / ' + (taking.targetCnt || 0);
+        frHtml += (taking.score ? '  分值 ' + taking.score : '');
+        frHtml += (expireStr ? '  ' + expireStr : '');
+        frHtml += '</div>';
+      } else {
+        frHtml += '<div class="race-taking-empty">未接取</div>';
+      }
+      frHtml += '</div>';
+
+      // 下次出现时间
+      if (fr.raceNextAppearTime) {
+        var nextDiff = fr.raceNextAppearTime - Date.now();
+        var nextStr = nextDiff > 0 ? '下次出现：约 ' + Math.ceil(nextDiff / 60000) + ' 分钟后' : '任务即将出现';
+        frHtml += '<div class="race-next-time">' + nextStr + '</div>';
+      }
+
+      // 任务列表（按 gridId 排序，3列网格）
+      var taskList = (fr.taskList || []).slice().sort(function(a, b) {
+        return (a.gridId != null ? a.gridId : 9999) - (b.gridId != null ? b.gridId : 9999);
+      });
+      if (taskList.length > 0) {
+        frHtml += '<div class="race-task-list">';
+        taskList.forEach(function(t) {
+          var isMine = t.blockReason && t.blockReason.indexOf('我的进行中任务') >= 0;
+          var isTakenByOther = t.blockReason && t.blockReason.indexOf('已被他人接取') >= 0;
+          var itemCls = 'race-task-item';
+          if (isMine) itemCls += ' taken-by-me';
+          else if (isTakenByOther) itemCls += ' taken-by-other';
+          else if (t.canTake) itemCls += ' can-take';
+          else itemCls += ' blocked';
+          var badges = '';
+          if (t.taskKey === 'sysUpgrade') badges += '<span class="race-badge race-badge-sys-upgrade">系统升级</span>';
+          else if (t.taskKey === 'selfUpgrade') badges += '<span class="race-badge race-badge-self-upgrade">自己升级</span>';
+          else if (t.taskKey === 'otherUpgrade') badges += '<span class="race-badge race-badge-other-upgrade">他人升级' + (t.upgradeUserName ? '(' + t.upgradeUserName + ')' : '') + '</span>';
+          if (isMine) badges += '<span class="race-badge race-badge-me">进行中</span>';
+          else if (isTakenByOther) badges += '<span class="race-badge race-badge-taken">已被接取' + (t.takenUserName ? '(' + t.takenUserName + ')' : '') + '</span>';
+          else if (t.canTake) badges += '<span class="race-badge race-badge-cantake">可接</span>';
+          if (t.inCd) {
+            var cdD = t.appearTime ? new Date(t.appearTime) : null;
+            var cdStr = cdD ? (pad(cdD.getHours()) + ':' + pad(cdD.getMinutes()) + ':' + pad(cdD.getSeconds())) : '';
+            badges += '<span class="race-badge race-badge-cd">CD' + (cdStr ? ' 至' + cdStr : '') + '</span>';
+          }
+          var scoreVal = t.score != null ? t.score : '-';
+          frHtml += '<div class="' + itemCls + '">';
+          frHtml += '<div class="race-task-grid-id">#' + (t.gridId != null ? t.gridId : '-') + badges + '</div>';
+          frHtml += '<div class="race-task-name">' + (t.taskName || '任务#' + t.taskId) + '</div>';
+          if (t.blockReason && !isMine) {
+            frHtml += '<div class="race-task-reason">' + t.blockReason + '</div>';
+          }
+          frHtml += '<div class="race-task-score">' + scoreVal + '分</div>';
+          frHtml += '</div>';
+        });
+        frHtml += '</div>';
+      } else {
+        frHtml += '<div class="empty-tip">暂无竞赛任务</div>';
+      }
+
+      document.getElementById('fmlRaceBody').innerHTML = frHtml;
+    } else {
+      panelFR.style.display = 'none';
+    }
+
+    applyFilter(currentFilter);
+
+    var now = new Date();
+    document.getElementById('refreshInfo').textContent =
+      '最后更新 ' + now.getHours() + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+  }
+
+  function setFilter(q) {
+    currentFilter = q;
+    document.querySelectorAll('.filter-btn').forEach(function(btn) {
+      btn.classList.toggle('active', parseInt(btn.dataset.q) === q);
+    });
+    applyFilter(q);
+  }
+
+  function applyFilter(q) {
+    document.querySelectorAll('.cell').forEach(function(cell) {
+      if (q === 0) {
+        cell.classList.remove('dimmed');
+      } else {
+        var cq = parseInt(cell.dataset.quality) || 0;
+        // 空地(state=0)始终显示，其他按品质过滤
+        var st = parseInt(cell.dataset.state);
+        if (st === 0 || cq === q) {
+          cell.classList.remove('dimmed');
+        } else {
+          cell.classList.add('dimmed');
+        }
+      }
+    });
+  }
+
+  function showTooltip(e, d) {
+    e.stopPropagation();  // 阻止冒泡，防止触发 document 的关闭监听
+
+    var tip = document.getElementById('tooltip');
+    var st = (d.state !== undefined && d.state !== null) ? parseInt(d.state) : 0;
+    if (st <= 0) {
+      tip.innerHTML =
+        '<div style="margin-bottom:4px;font-weight:600;color:#ccc">未种植</div>' +
+        row('地块', '#' + d.landId) +
+        row('状态', '未种植');
+    } else {
+      var nextStr = d.nextTime ? formatTime(d.nextTime) : '-';
+      var plantStr = d.plantTime ? formatTime(d.plantTime) : '-';
+      tip.innerHTML =
+        '<div style="margin-bottom:4px;font-weight:600">' + (d.flowerName || '未知') +
+        (d.flowerQuality ? ' <span style="color:#ef9a2a">[' + (Q_NAME[d.flowerQuality] || '') + ']</span>' : '') + '</div>' +
+        row('地块', '#' + d.landId) +
+        row('状态', STATE_NAME[st] || st) +
+        row('等级', d.lvl || '-') +
+        row('品质', Q_NAME[d.flowerQuality] || '-') +
+        row('收取', (d.harvestCnt || 0) + '/' + (d.frequencys || 0) + '  剩余' + (d.remainHarvest || 0)) +
+        row('下次操作', nextStr) +
+        row('种植时间', plantStr);
+    }
+    // 定位
+    var tipW = 210, tipH = 220;
+    var x = e.clientX + 12, y = e.clientY + 12;
+    if (x + tipW > window.innerWidth) x = e.clientX - tipW - 12;
+    if (x < 4) x = 4;
+    if (y + tipH > window.innerHeight) y = e.clientY - tipH - 12;
+    if (y < 4) y = 4;
+    tip.style.left = x + 'px';
+    tip.style.top = y + 'px';
+    tip.classList.add('show');
+  }
+
+  function hideTooltip() {
+    document.getElementById('tooltip').classList.remove('show');
+  }
+
+  // 持久监听：点页面任意空白处关闭 tooltip
+  document.addEventListener('click', hideTooltip);
+
+  function renderOrderItem(o) {
+    if (!o) return '';
+    var flowers = o.flowers || [];
+    var tagsHtml = flowers.length > 0
+      ? flowers.map(function(f) {
+          return '<span class="order-flower-tag">' + f.flowerName + ' ×' + f.count + '</span>';
+        }).join('')
+      : '<span style="color:#bbb;font-size:11px">暂无需求</span>';
+    var headerHtml = '';
+    if (o.npcName) {
+      headerHtml = '<div class="order-npc">' + o.npcName +
+        (o.isVideo === 1 ? ' <span class="order-video-tag">视频</span>' : '') +
+        '</div>';
+    }
+    var cdHtml = '';
+    if (o.cdTime) {
+      var diff = o.cdTime - Date.now();
+      var cdClass, cdStr;
+      if (diff <= 0) {
+        cdClass = 'ready';
+        cdStr = '✓ 已刷新';
+      } else if (diff < 30 * 60000) {
+        cdClass = 'soon';
+        cdStr = '待刷新（' + Math.ceil(diff / 60000) + ' 分钟后）';
+      } else {
+        cdClass = '';
+        cdStr = '待刷新（' + formatTime(o.cdTime) + '）';
+      }
+      cdHtml = '<div class="order-cd ' + cdClass + '">' + cdStr + '</div>';
+    }
+    return '<div class="order-item">' + headerHtml + '<div class="order-flowers">' + tagsHtml + '</div>' + cdHtml + '</div>';
+  }
+
+  function pitem(label, val) {
+    return '<div class="panel-item"><span class="panel-label">' + label + '</span><span class="panel-val">' + (val !== undefined && val !== null ? val : '-') + '</span></div>';
+  }
+
+  function row(label, val) {
+    return '<div class="tooltip-row"><span class="tooltip-label">' + label + '</span><span class="tooltip-val">' + val + '</span></div>';
+  }
+
+  function formatTime(ms) {
+    if (!ms) return '-';
+    var d = new Date(ms);
+    return (d.getMonth()+1) + '/' + d.getDate() + ' ' + d.getHours() + ':' + pad(d.getMinutes());
+  }
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  var _fsSortMode = 'stock';
+  var Q_SORT = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 5 }; // 品质排序权重（凡<普<珍<华<仙）
+
+  function renderFsGrid() {
+    var list = (window._fsRawList || []).slice();
+    if (_fsSortMode === 'stock') {
+      list.sort(function(a, b) { return b.stock - a.stock; });
+    } else {
+      // 按品质分组，组内按数量降序
+      list.sort(function(a, b) {
+        var qa = Q_SORT[a.quality] || 0, qb = Q_SORT[b.quality] || 0;
+        if (qb !== qa) return qb - qa;
+        return b.stock - a.stock;
+      });
+    }
+    document.getElementById('flowerStockGrid').innerHTML = list.map(function(f) {
+      return '<div class="flower-stock-item">' +
+        '<span class="flower-stock-name">' + f.flowerName + '</span>' +
+        '<span class="flower-stock-num">' + f.stock + '</span>' +
+        '</div>';
+    }).join('');
+  }
+
+  function setFsSort(mode) {
+    _fsSortMode = mode;
+    document.getElementById('fsSortStock').className = 'fs-sort-btn' + (mode === 'stock' ? ' active' : '');
+    document.getElementById('fsSortQuality').className = 'fs-sort-btn' + (mode === 'quality' ? ' active' : '');
+    renderFsGrid();
+  }
+
+  function togglePanel(titleEl) {
+    var arrow = titleEl.querySelector('.toggle-arrow');
+    var panel = titleEl.parentElement;
+    var open = true;
+    var children = panel.children;
+    for (var i = 1; i < children.length; i++) {
+      if (children[i].style.display === 'none') { open = false; break; }
+    }
+    for (var i = 1; i < children.length; i++) {
+      children[i].style.display = open ? 'none' : '';
+    }
+    if (arrow) arrow.textContent = open ? '◀' : '▼';
+  }
+
+  function toggleFlowerStock() {
+    var grid = document.getElementById('flowerStockGrid');
+    var sortBar = document.querySelector('.fs-sort-bar');
+    var arrow = document.getElementById('fsArrow');
+    var open = grid.style.display !== 'none';
+    grid.style.display = open ? 'none' : 'grid';
+    if (sortBar) sortBar.style.display = open ? 'none' : '';
+    arrow.textContent = open ? '◀' : '▼';
+  }
+
+  function showError(msg) {
+    document.getElementById('loadingMask').classList.add('hidden');
+    document.getElementById('main').style.display = 'none';
+    document.getElementById('error').style.display = 'block';
+    document.getElementById('errorMsg').textContent = msg;
+  }
+</script>
+</body>
+</html>

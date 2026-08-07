@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>脚本配置</title>
+  <style>
+    /* 关键 CSS：确保页面加载时立即生效 */
+    html {
+      overflow-y: scroll;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: none;
+    }
+    body { 
+      margin: 0; 
+      padding: 0; 
+      overscroll-behavior-y: none;
+      position: relative;
+    }
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      pointer-events: auto;
+    }
+    .loading-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .config-content {
+      display: none;
+    }
+  </style>
+  <script>
+    // 从 URL 中获取版本号参数（由父组件传入）
+    const urlParams = new URLSearchParams(window.location.search);
+    const version = urlParams.get('v') || '1.0.0';
+    
+    // 直接使用版本号加载资源，不需要再加载 version.js
+    // 加载配置 Schema（JS文件，无跨域问题）
+    const schemaScript = document.createElement('script');
+    schemaScript.src = `config.schema.js?v=${version}`;
+    schemaScript.onload = function() {
+      // Schema 加载完成后，先加载花卉数据，再加载 CSS 和 JS
+      
+      // 1. 加载花卉数据
+      const flowersScript = document.createElement('script');
+      flowersScript.src = `flowers.data.js?v=${version}`;
+      flowersScript.onload = function() {
+        console.log('[Config] flowers.data.js 加载完成');
+        
+        // 2. 加载花瓶数据
+        const vasesScript = document.createElement('script');
+        vasesScript.src = `vases.data.js?v=${version}`;
+        vasesScript.onload = function() {
+          console.log('[Config] vases.data.js 加载完成');
+          
+          // 3. 加载花艺品数据
+          const flowerArtScript = document.createElement('script');
+          flowerArtScript.src = `flowerArt.data.js?v=${version}`;
+          flowerArtScript.onload = function() {
+            console.log('[Config] flowerArt.data.js 加载完成');
+
+            // 4. 加载花灵数据
+            const flowerElvesScript = document.createElement('script');
+            flowerElvesScript.src = `flowerElves.data.js?v=${version}`;
+            flowerElvesScript.onload = function() {
+              console.log('[Config] flowerElves.data.js 加载完成');
+
+              // 5. 加载 CSS
+              const link = document.createElement('link');
+              link.rel = 'stylesheet';
+              link.href = `config.css?v=${version}`;
+              document.head.appendChild(link);
+
+              // 6. 加载 JS
+              const script = document.createElement('script');
+              script.src = `config.js?v=${version}`;
+              document.body.appendChild(script);
+            };
+            document.head.appendChild(flowerElvesScript);
+          };
+          document.head.appendChild(flowerArtScript);
+        };
+        document.head.appendChild(vasesScript);
+      };
+      document.head.appendChild(flowersScript);
+    };
+    document.head.appendChild(schemaScript);
+  </script>
+</head>
+<body>
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-container">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">加载中...</div>
+    </div>
+  </div>
+
+  <!-- Configuration Content -->
+  <div class="config-content" id="configContent" style="display: none;">
+    <!-- 配置项将通过 JavaScript 动态生成 -->
+  </div>
+  
+  <!-- 提示消息 -->
+  <div class="toast" id="toast"></div>
+</body>
+</html>
