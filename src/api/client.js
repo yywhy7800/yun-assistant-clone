@@ -15,8 +15,12 @@ async function request(path, options = {}) {
   const body = await resp.json().catch(() => ({ success: false, message: '服务器异常' }))
   if (!resp.ok || body.success === false) {
     if (resp.status === 401) {
+      // 清空全部登录态（localStorage token + sessionStorage 登录标记），
+      // 否则路由守卫会把用户强制踢回首页造成 401 死循环
       localStorage.removeItem('yun_token')
       localStorage.removeItem('yun_user')
+      sessionStorage.removeItem('yun_is_logged_in')
+      sessionStorage.removeItem('yun_username')
       window.location.hash = '#/login'
     }
     throw new Error(body.detail || body.message || '请求失败')
@@ -25,7 +29,7 @@ async function request(path, options = {}) {
 }
 
 export const authAPI = {
-  register: (username, password) => request('/auth/register', { method: 'POST', body: JSON.stringify({ username, password }) }),
+  register: (username, password, phone) => request('/auth/register', { method: 'POST', body: JSON.stringify({ username, password, phone: phone || null }) }),
   login: (username, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   changePassword: (oldPassword, newPassword) => request('/auth/change-password', { method: 'POST', body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }) }),
 }

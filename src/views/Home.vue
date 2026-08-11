@@ -412,7 +412,7 @@
       </div>
     </van-popup>
 
-    <!-- ==================== 太阳充值 popup ==================== -->
+    <!-- ==================== 太阳充值 popup（改为卡密兑换，复用小太阳弹窗） ==================== -->
     <van-popup
       v-model:show="sunRechargeVisible"
       position="bottom"
@@ -427,18 +427,19 @@
             <span>当前太阳：</span>
             <span class="sun-balance-value">☀️ {{ sunBalance }}</span>
           </div>
-          <div class="recharge-plans">
-            <div
-              v-for="plan in sunRechargePlans"
-              :key="plan.id"
-              class="recharge-plan-card"
-              @click="handleRecharge(plan)"
-            >
-              <div class="plan-amount">☀️ {{ plan.amount }}</div>
-              <div class="plan-price">¥{{ plan.price }}</div>
-            </div>
+          <van-field
+            v-model="sunRedeemCode"
+            label="卡密"
+            placeholder="请输入卡密兑换小太阳"
+            clearable
+            :disabled="redeeming"
+          />
+          <div style="margin-top: 16px;">
+            <van-button type="primary" block :loading="redeeming" @click="handleSunRechargeRedeem">
+              兑换
+            </van-button>
           </div>
-          <div class="panel-tip">充值后太阳将立即到账，可用于兑换脚本运行时长</div>
+          <div class="panel-tip">使用卡密兑换太阳，兑换后立即到账，可用于脚本续期</div>
         </div>
       </div>
     </van-popup>
@@ -628,6 +629,27 @@
       </div>
     </van-dialog>
 
+    <!-- ==================== 续期 dialog（按天续费，1 天 1 太阳） ==================== -->
+    <van-dialog
+      v-model:show="renewVisible"
+      title="续期脚本"
+      show-cancel-button
+      confirm-button-text="确认续期"
+      @confirm="handleRenewConfirm"
+    >
+      <div style="padding: 12px 16px;">
+        <van-field
+          v-model="renewDays"
+          type="number"
+          label="续期天数"
+          placeholder="请输入续期天数"
+        />
+        <div class="renew-cost-tip">
+          1 天消耗 1 ☀️，本次消耗 {{ renewCost }} ☀️（当前余额 {{ sunBalance }} ☀️）
+        </div>
+      </div>
+    </van-dialog>
+
     <!-- ==================== 添加脚本 popup（原站 AddScriptDialog 复刻） ==================== -->
     <van-popup
       v-model:show="addScriptVisible"
@@ -806,6 +828,14 @@ const sunRedeemVisible = ref(false)
 const sunRedeemCode = ref('')
 const redeeming = ref(false)
 
+// 续期弹窗（按天续费，1 天 1 太阳）
+const renewVisible = ref(false)
+const renewDays = ref(1)
+const renewCost = computed(() => {
+  const days = Number(renewDays.value)
+  return days >= 1 && days <= 365 ? days : 0
+})
+
 // 脚本列表
 const scripts = ref([])
 
@@ -862,15 +892,8 @@ const mockRoles = ref([
   { id: 'role_003', name: '辅助小红', server: 'B服一区' },
 ])
 
-// 太阳充值
+// 太阳充值（卡密兑换）
 const sunRechargeVisible = ref(false)
-const sunRechargePlans = ref([
-  { id: 1, amount: 10, price: 1 },
-  { id: 2, amount: 50, price: 5 },
-  { id: 3, amount: 100, price: 10 },
-  { id: 4, amount: 500, price: 45 },
-  { id: 5, amount: 1000, price: 80 },
-])
 
 // 阳光传递
 const sunTransferVisible = ref(false)
@@ -1122,6 +1145,9 @@ async function handleToggleScript(script) {
   try {
     const res = await toggleScriptAPI(script.id)
     if (res.success) {
+      // 同步本地状态（后端已真实切换）
+      const target = scripts.value.find((s) => s.id === script.id)
+      if (target) target.status = res.newStatus
       showSuccessToast(res.newStatus === 'running' ? '已启动' : '已停止')
     } else {
       showFailToast(res.message)
@@ -1159,12 +1185,40 @@ async function onActionSelect(action) {
       // 用户取消删除
     }
   } else if (action.name === '续期') {
-    const res = await renewScriptAPI(currentScript.value.id)
-    if (res.success) {
-      showSuccessToast('续期成功')
-    } else {
-      showFailToast(res.message)
+    openRenewDialog()
+  }
+}
+
+/** 打开续期弹窗（按天续费，1 天 1 太阳） */
+function openRenewDialog() {
+  renewDays.value = 1
+  renewVisible.value = true
+}
+
+/** 续期确认 */
+async function handleRenewConfirm() {
+  const days = Number(renewDays.value)
+  if (!days || days < 1 || days > 365) {
+    showToast('请输入有效天数（1-365）')
+    return
+  }
+  if (days > sunBalance.value) {
+    showFailToast(`太阳余额不足，需要 ${days} ☀️`)
+    return
+  }
+  try {
+    const res = await renewScriptAPI(currentScript.value.id, days)
+    // 刷新余额（后端返回扣减后余额）与脚本列表（到期时间更新）
+    if (res.data && res.data.sun_balance !== undefined) {
+      sunBalance.value = res.data.sun_balance
+      const stored = JSON.parse(localStorage.getItem('yun_user') || '{}')
+      stored.sun_balance = res.data.sun_balance
+      localStorage.setItem('yun_user', JSON.stringify(stored))
     }
+    scripts.value = await getScriptsAPI()
+    showSuccessToast(`续期成功 ${days} 天（消耗 ${days} ☀️）`)
+  } catch (e) {
+    showFailToast(e.message || '续期失败')
   }
 }
 
@@ -1183,16 +1237,28 @@ function openExchangeCode() {
   exchangeCodeVisible.value = true
 }
 
-/** 兑换码提交 */
-function handleExchangeCode() {
-  if (!exchangeCode.value.trim()) {
+/** 兑换码提交（真实卡密兑换，面额由卡密决定） */
+async function handleExchangeCode() {
+  const code = exchangeCode.value.trim()
+  if (!code) {
     showToast('请输入兑换码')
     return
   }
-  showSuccessToast('兑换成功！获得 10 ☀️')
-  sunBalance.value += 10
-  exchangeCode.value = ''
-  exchangeCodeVisible.value = false
+  try {
+    const res = await cardAPI.redeem(code)
+    // 刷新余额
+    if (res.data && res.data.sun_balance !== undefined) {
+      sunBalance.value = res.data.sun_balance
+      const stored = JSON.parse(localStorage.getItem('yun_user') || '{}')
+      stored.sun_balance = res.data.sun_balance
+      localStorage.setItem('yun_user', JSON.stringify(stored))
+    }
+    showSuccessToast(res.message || '兑换成功')
+    exchangeCode.value = ''
+    exchangeCodeVisible.value = false
+  } catch (e) {
+    showFailToast(e.message || '兑换失败')
+  }
 }
 
 /** 打开游戏账号管理 */
@@ -1241,24 +1307,35 @@ function handleAddAccount() {
   accountManageView.value = 'accounts'
 }
 
-/** 打开太阳充值 */
+/** 打开太阳充值 → 卡密兑换（充值 = 兑换卡密） */
 function openSunRecharge() {
   personalCenterVisible.value = false
+  sunRedeemCode.value = ''
   sunRechargeVisible.value = true
 }
 
-/** 充值选择 */
-function handleRecharge(plan) {
-  showDialog({
-    title: '确认充值',
-    message: `确认充值 ${plan.amount} ☀️，需支付 ¥${plan.price}？`,
-    showCancelButton: true,
-    confirmButtonColor: '#667eea',
-  }).then(() => {
-    sunBalance.value += plan.amount
-    showSuccessToast(`充值成功！获得 ${plan.amount} ☀️`)
+/** 充值弹窗兑换确认（真实卡密兑换） */
+async function handleSunRechargeRedeem() {
+  const code = sunRedeemCode.value.trim()
+  if (!code) {
+    showToast('请输入卡密')
+    return
+  }
+  redeeming.value = true
+  try {
+    const res = await cardAPI.redeem(code)
+    sunBalance.value = res.data.sun_balance
+    const stored = JSON.parse(localStorage.getItem('yun_user') || '{}')
+    stored.sun_balance = res.data.sun_balance
+    localStorage.setItem('yun_user', JSON.stringify(stored))
+    showSuccessToast(res.message || '兑换成功')
+    sunRedeemCode.value = ''
     sunRechargeVisible.value = false
-  }).catch(() => {})
+  } catch (e) {
+    showFailToast(e.message || '兑换失败')
+  } finally {
+    redeeming.value = false
+  }
 }
 
 /** 打开阳光传递 */
@@ -1361,6 +1438,8 @@ function handleLogout() {
     confirmButtonColor: '#ee0a24',
   }).then(() => {
     sessionStorage.clear()
+    localStorage.removeItem('yun_token')
+    localStorage.removeItem('yun_user')
     router.push('/login')
   }).catch(() => {})
 }

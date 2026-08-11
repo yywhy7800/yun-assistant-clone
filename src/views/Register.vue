@@ -130,7 +130,7 @@ async function handleRegister() {
 
   loading.value = true
   try {
-    const res = await registerAPI(username.value, password.value)
+    const res = await registerAPI(username.value, password.value, phone.value)
     if (res.success) {
       // 注册即登录（registerAPI 已写入 yun_token），标记登录态并跳首页
       sessionStorage.setItem('yun_is_logged_in', 'true')
