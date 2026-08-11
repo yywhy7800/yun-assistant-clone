@@ -8,7 +8,7 @@
       fixed
       placeholder
     />
-    <AddAccountForm @success="handleSuccess" @cancel="router.back()" />
+    <AddAccountForm @success="handleSuccess" />
   </div>
 </template>
 

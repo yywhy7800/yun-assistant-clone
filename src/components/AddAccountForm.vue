@@ -21,16 +21,6 @@
             <span v-if="!ch.available" class="channel-lock">未开放</span>
           </div>
         </div>
-        <!-- 账号标识码（后端未实现对应协议，标记未开放） -->
-        <div class="channel-item" @click="onSelectChannel({ name: '账号标识码', available: false })">
-          <div class="channel-icon" style="background: #1989fa; display: flex; align-items: center; justify-content: center;">
-            <van-icon name="qr" size="32" color="#fff" />
-          </div>
-          <div class="channel-name">
-            账号标识码
-            <span class="channel-lock">未开放</span>
-          </div>
-        </div>
       </div>
     </template>
 
@@ -59,7 +49,6 @@
       </div>
     </template>
 
-    <!-- ===== 未开放渠道（应用宝/OPPO/VIVO/华为/账号标识码）不再进入绑定流程 ===== -->
     <!-- ===== success 视图 ===== -->
     <template v-else-if="view === 'success'">
       <div class="success-section">
@@ -108,7 +97,7 @@ import { ref, reactive } from 'vue'
 import { showToast, showFailToast } from 'vant'
 import { scriptAPI } from '../api/client'
 
-const emit = defineEmits(['success', 'cancel'])
+const emit = defineEmits(['success'])
 
 // ==================== 渠道数据 ====================
 // 后端仅实现密码渠道绑定协议（POST /api/scripts），其余渠道标记未开放
@@ -119,6 +108,7 @@ const channels = [
   { name: 'VIVO', color: '#7232dd', channel: 'vivo', available: false, iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56"><rect width="56" height="56" rx="10" fill="#7232dd"/><text x="28" y="36" text-anchor="middle" font-size="22" fill="#fff">VI</text></svg>' },
   { name: '华为', color: '#07c160', channel: 'huawei', available: false, iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56"><rect width="56" height="56" rx="10" fill="#07c160"/><text x="28" y="36" text-anchor="middle" font-size="22" fill="#fff">华</text></svg>' },
   { name: 'B服', color: '#ee0a24', channel: 'bilibili', available: true, iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56"><rect width="56" height="56" rx="10" fill="#ee0a24"/><text x="28" y="36" text-anchor="middle" font-size="28" fill="#fff">B</text></svg>' },
+  { name: '账号标识码', color: '#1989fa', channel: 'identifier', available: false, iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56"><rect width="56" height="56" rx="10" fill="#1989fa"/><g fill="#fff"><rect x="15" y="15" width="11" height="11" rx="2"/><rect x="30" y="15" width="11" height="11" rx="2"/><rect x="15" y="30" width="11" height="11" rx="2"/><rect x="30" y="30" width="11" height="11" rx="2"/></g></svg>' },
 ]
 
 // ==================== 状态机 ====================
@@ -293,21 +283,6 @@ function onFinish() {
 .form-submit .van-button {
   height: 48px;
   font-size: 16px;
-}
-
-/* ----- back-bar ----- */
-.back-bar {
-  display: flex;
-  align-items: center;
-  padding: 14px 16px;
-  color: #666;
-  cursor: pointer;
-  gap: 8px;
-  font-size: 14px;
-}
-
-.back-bar:active {
-  opacity: 0.7;
 }
 
 /* ----- channel-lock（未开放渠道标记） ----- */

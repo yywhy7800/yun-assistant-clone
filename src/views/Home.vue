@@ -356,7 +356,7 @@
               v-for="acct in managedAccounts"
               :key="acct.id"
               class="account-card"
-              @click="openRoles(acct)"
+              @click="openRoles()"
             >
               <div class="account-card-top">
                 <div class="account-card-header">
@@ -387,7 +387,7 @@
         <template v-else-if="accountManageView === 'addAccount'">
           <van-nav-bar title="添加/同步账号" left-arrow @click-left="accountManageView = 'accounts'" />
           <div class="panel-body">
-            <AddAccountForm v-if="accountManageView === 'addAccount'" @success="onAddAccountSuccess" @cancel="accountManageView = 'accounts'" />
+            <AddAccountForm v-if="accountManageView === 'addAccount'" @success="onAddAccountSuccess" />
           </div>
         </template>
 
@@ -639,7 +639,7 @@
       <div class="panel-container">
         <van-nav-bar title="添加脚本" left-arrow @click-left="addScriptVisible = false" />
         <div class="panel-body">
-          <AddAccountForm v-if="addScriptVisible" @success="onAddAccountSuccess" @cancel="addScriptVisible = false" />
+          <AddAccountForm v-if="addScriptVisible" @success="onAddAccountSuccess" />
         </div>
       </div>
     </van-popup>
@@ -1180,8 +1180,8 @@ function openAccountManage() {
   accountManageVisible.value = true
 }
 
-/** 进入角色管理 */
-function openRoles(acct) {
+/** 进入角色管理（后端 bind 不返回角色，占位视图） */
+function openRoles() {
   accountManageView.value = 'roles'
 }
 
@@ -2101,69 +2101,5 @@ async function onAddAccountSuccess() {
   color: #666;
   line-height: 1.8;
   white-space: pre-line;
-}
-
-/* ==================== 添加脚本 popup 样式 ==================== */
-
-.add-script-steps {
-  padding: 12px 16px;
-  background: #fff;
-}
-
-.add-new-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 16px;
-  color: #1989fa;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.add-new-row:active {
-  opacity: 0.7;
-}
-
-.confirm-card {
-  background: #fff;
-  border-radius: 12px;
-  margin: 16px;
-  padding: 20px 16px;
-}
-
-.confirm-section {
-  margin-bottom: 16px;
-}
-
-.confirm-section:last-child {
-  margin-bottom: 0;
-}
-
-.confirm-label {
-  font-size: 13px;
-  color: #999;
-  margin-bottom: 4px;
-}
-
-.confirm-value {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-}
-
-.confirm-sub {
-  font-size: 12px;
-  color: #999;
-  margin-top: 4px;
-}
-
-.form-submit {
-  padding: 20px 16px;
-}
-
-.form-submit .van-button {
-  height: 48px;
-  font-size: 16px;
 }
 </style>

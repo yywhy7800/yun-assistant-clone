@@ -11,7 +11,13 @@ async function request(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) }
   const token = getToken()
   if (token) headers.Authorization = `Bearer ${token}`
-  const resp = await fetch(BASE + path, { ...options, headers })
+  let resp
+  try {
+    resp = await fetch(BASE + path, { ...options, headers })
+  } catch (e) {
+    // 网络不可达（TypeError: Failed to fetch 等），转成友好文案
+    throw new Error('网络连接失败，请稍后重试')
+  }
   const body = await resp.json().catch(() => ({ success: false, message: '服务器异常' }))
   if (!resp.ok || body.success === false) {
     if (resp.status === 401) {
