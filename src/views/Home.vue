@@ -872,7 +872,8 @@ onMounted(async () => {
   try {
     await refreshScripts()
   } catch (e) {
-    showFailToast('加载失败')
+    // 令牌过期时 client.js 已清理登录态并跳转登录，此处静默避免提示与实际原因不符
+    if (e.status !== 401) showFailToast('加载失败')
   }
   // 拉取公告（失败静默，保留默认欢迎语）
   try {
