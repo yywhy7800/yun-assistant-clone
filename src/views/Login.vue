@@ -101,9 +101,8 @@ async function handleLogin() {
       showToast(res.message || '登录失败')
     }
   } catch (e) {
-    // 显示后端真实错误（client.js 已抛出 e.message：如"账号或密码错误"），网络异常时才用兜底文案
-    const isNetwork = e instanceof TypeError && !e.message
-    showToast(isNetwork ? '网络错误，请重试' : e.message || '登录失败')
+    // 透传后端真实错误（如"账号或密码错误"），网络异常时兜底
+    showToast(e.message || '网络错误，请重试')
   } finally {
     loading.value = false
   }
