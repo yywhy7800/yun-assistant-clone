@@ -27,6 +27,7 @@ async function request(path, options = {}) {
 export const authAPI = {
   register: (username, password) => request('/auth/register', { method: 'POST', body: JSON.stringify({ username, password }) }),
   login: (username, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+  changePassword: (oldPassword, newPassword) => request('/auth/change-password', { method: 'POST', body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }) }),
 }
 
 export const scriptAPI = {

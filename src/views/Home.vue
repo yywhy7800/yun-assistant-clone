@@ -750,7 +750,7 @@ import {
 } from '../api/mock.js'
 import { getLogsMock } from '../api/log-mock.js'
 import AddAccountForm from '../components/AddAccountForm.vue'
-import { cardAPI, scriptAPI } from '../api/client'
+import { authAPI, cardAPI, scriptAPI } from '../api/client'
 
 const router = useRouter()
 
@@ -1333,14 +1333,23 @@ function openChangePassword() {
   changePasswordVisible.value = true
 }
 
-/** 修改密码确认 */
-function handleChangePasswordConfirm() {
+/** 修改密码确认（调真实后端） */
+async function handleChangePasswordConfirm() {
   if (!passwordForm.oldPassword.trim() || !passwordForm.newPassword.trim()) {
     showToast('请填写完整信息')
     return
   }
-  showSuccessToast('修改密码成功')
-  changePasswordVisible.value = false
+  if (passwordForm.newPassword.length < 6) {
+    showToast('新密码至少6位')
+    return
+  }
+  try {
+    const res = await authAPI.changePassword(passwordForm.oldPassword, passwordForm.newPassword)
+    showSuccessToast(res.message || '修改密码成功')
+    changePasswordVisible.value = false
+  } catch (e) {
+    showFailToast(e.message || '修改失败')
+  }
 }
 
 /** 退出登录 */
