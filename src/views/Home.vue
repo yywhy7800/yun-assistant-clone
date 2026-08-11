@@ -353,7 +353,7 @@
           <van-nav-bar title="游戏账号管理" left-arrow @click-left="accountManageVisible = false" />
           <div class="panel-body">
             <div
-              v-for="acct in mockAccounts"
+              v-for="acct in managedAccounts"
               :key="acct.id"
               class="account-card"
               @click="openRoles(acct)"
@@ -363,12 +363,12 @@
                   <span class="account-name">{{ acct.name }}</span>
                   <div class="account-tags">
                     <van-tag type="primary" size="small">{{ acct.channel }}</van-tag>
-                    <van-tag plain size="small">{{ acct.genType }}</van-tag>
+                    <van-tag :type="acct.status === 'running' ? 'success' : 'default'" plain size="small">{{ acct.status === 'running' ? '运行中' : '已停止' }}</van-tag>
                   </div>
                 </div>
                 <div class="account-card-info">
                   <div class="account-detail">账号名称: {{ acct.accountName }}</div>
-                  <div class="account-time">更新时间: {{ acct.updateTime }}</div>
+                  <div class="account-time">服务器: {{ acct.server }} | 到期: {{ acct.expire }}</div>
                 </div>
               </div>
               <div class="account-card-actions">
@@ -376,37 +376,26 @@
                 <van-icon name="arrow" color="#999" />
               </div>
             </div>
-            <van-empty v-if="mockAccounts.length === 0" description="暂无游戏账号" />
+            <van-empty v-if="managedAccounts.length === 0" description="暂无游戏账号" />
             <div style="padding: 16px;">
               <van-button type="primary" size="large" round block @click="accountManageView = 'addAccount'">+ 添加/同步账号</van-button>
             </div>
           </div>
         </template>
 
-        <!-- addAccount 视图 -->
+        <!-- addAccount 视图（真实绑定，无假提交表单） -->
         <template v-else-if="accountManageView === 'addAccount'">
           <van-nav-bar title="添加/同步账号" left-arrow @click-left="accountManageView = 'accounts'" />
-          <div class="panel-body" style="padding: 16px;">
-            <van-field v-model="addAccountForm.name" label="账号名称" placeholder="请输入账号名称" />
-            <van-field v-model="addAccountForm.channel" label="渠道选择" placeholder="请输入渠道" />
-            <van-field v-model="addAccountForm.genType" label="生成方式" placeholder="请输入生成方式" />
-            <div style="padding: 16px;">
-              <van-button type="primary" size="large" round block @click="handleAddAccount">提交</van-button>
-            </div>
+          <div class="panel-body">
+            <AddAccountForm v-if="accountManageView === 'addAccount'" @success="onAddAccountSuccess" @cancel="accountManageView = 'accounts'" />
           </div>
         </template>
 
-        <!-- roles 视图 -->
+        <!-- roles 视图（后端 bind 不返回角色，role_name 为空待获取，仅占位说明） -->
         <template v-else-if="accountManageView === 'roles'">
           <van-nav-bar title="角色管理" left-arrow @click-left="accountManageView = 'accounts'" />
           <div class="panel-body">
-            <van-cell
-              v-for="role in mockRoles"
-              :key="role.id"
-              :title="role.name"
-              :label="`角色ID: ${role.id} | 服务器: ${role.server}`"
-            />
-            <van-empty v-if="mockRoles.length === 0" description="暂无角色" />
+            <van-empty description="绑定后自动获取角色信息，当前暂无" />
           </div>
         </template>
       </div>
@@ -639,7 +628,7 @@
       </div>
     </van-dialog>
 
-    <!-- ==================== 添加脚本 popup（原站 AddScriptDialog 复刻） ==================== -->
+    <!-- ==================== 添加脚本 popup（选择渠道 → 输入账号密码 → 真实绑定） ==================== -->
     <van-popup
       v-model:show="addScriptVisible"
       position="bottom"
@@ -648,101 +637,9 @@
       :close-on-click-overlay="false"
     >
       <div class="panel-container">
-        <!-- NavBar -->
-        <van-nav-bar
-          :title="addScriptView === 'addAccount' ? '添加游戏账号' : '添加脚本'"
-          :left-arrow="addScriptView === 'addAccount'"
-          @click-left="onAddScriptBack"
-        >
-          <template v-if="addScriptView !== 'addAccount'" #right>
-            <van-icon name="cross" size="18" @click="addScriptVisible = false" />
-          </template>
-        </van-nav-bar>
-
-        <!-- 步骤条（仅非 addAccount 视图） -->
-        <div v-if="addScriptView !== 'addAccount'" class="add-script-steps">
-          <van-steps :active="addScriptStep" active-icon="success" active-color="#07c160">
-            <van-step>选择账号</van-step>
-            <van-step>选择角色</van-step>
-            <van-step>确认创建</van-step>
-          </van-steps>
-        </div>
-
-        <!-- step0：选择账号 -->
-        <div v-if="addScriptView === 'step0'" class="panel-body">
-          <van-radio-group v-model="selectedAccountId">
-            <van-cell-group>
-              <van-cell
-                v-for="acc in mockAccounts"
-                :key="acc.id"
-                :title="acc.accountName"
-                :label="`更新时间: ${acc.updateTime}`"
-                clickable
-                @click="onSelectAccount(acc)"
-              >
-                <template #right-icon>
-                  <van-radio :name="acc.id" />
-                </template>
-              </van-cell>
-            </van-cell-group>
-          </van-radio-group>
-          <van-empty v-if="mockAccounts.length === 0" description="暂无游戏账号" />
-          <div class="add-new-row" @click="addScriptView = 'addAccount'">
-            <van-icon name="plus" size="16" color="#1989fa" />
-            <span>添加/同步账号</span>
-          </div>
-        </div>
-
-        <!-- step1：选择角色 -->
-        <div v-if="addScriptView === 'step1'" class="panel-body">
-          <div v-if="rolesLoading" style="text-align: center; padding: 40px;">
-            <van-loading size="24" vertical>加载角色列表中...</van-loading>
-          </div>
-          <template v-else>
-            <van-empty v-if="scriptRoles.length === 0" description="该账号下暂无角色" />
-            <van-radio-group v-else v-model="selectedRoleId">
-              <van-cell-group>
-                <van-cell
-                  v-for="r in scriptRoles"
-                  :key="r.id"
-                  :title="r.roleName"
-                  :label="`服务器: ${r.serverName}`"
-                  clickable
-                  @click="onSelectRole(r)"
-                >
-                  <template #right-icon>
-                    <van-radio :name="r.id" />
-                  </template>
-                </van-cell>
-              </van-cell-group>
-            </van-radio-group>
-          </template>
-        </div>
-
-        <!-- step2：确认创建 -->
-        <div v-if="addScriptView === 'step2'" class="panel-body">
-          <div class="confirm-card">
-            <div class="confirm-section">
-              <div class="confirm-label">所选账号</div>
-              <div class="confirm-value">{{ selectedAccount?.accountName }}</div>
-              <div class="confirm-sub">更新时间：{{ selectedAccount?.updateTime }}</div>
-            </div>
-            <div class="confirm-section">
-              <div class="confirm-label">所选角色</div>
-              <div class="confirm-value">{{ selectedRole?.roleName }}</div>
-              <div class="confirm-sub">服务器：{{ selectedRole?.serverName }}</div>
-            </div>
-          </div>
-          <div class="form-submit">
-            <van-button type="primary" round block :loading="creating" loading-text="创建中..." @click="onCreateScript">
-              确认创建
-            </van-button>
-          </div>
-        </div>
-
-        <!-- addAccount 视图 -->
-        <div v-if="addScriptView === 'addAccount'" class="panel-body">
-          <AddAccountForm @success="onAddAccountSuccess" @cancel="addScriptView = 'step0'" />
+        <van-nav-bar title="添加脚本" left-arrow @click-left="addScriptVisible = false" />
+        <div class="panel-body">
+          <AddAccountForm v-if="addScriptVisible" @success="onAddAccountSuccess" @cancel="addScriptVisible = false" />
         </div>
       </div>
     </van-popup>
@@ -750,7 +647,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast, showDialog, showSuccessToast, showFailToast, showLoadingToast, closeToast } from 'vant'
 import {
@@ -841,6 +738,14 @@ const renewCost = computed(() => {
 // 脚本列表
 const scripts = ref([])
 
+/** 刷新真实脚本列表（含各脚本日志缓存预生成） */
+async function refreshScripts() {
+  scripts.value = await getScriptsAPI()
+  scripts.value.forEach((s) => {
+    allLogs.value[s.id] = getLogsMock(s.id)
+  })
+}
+
 // 操作菜单
 const actionSheetVisible = ref(false)
 const currentScript = ref(null)
@@ -861,38 +766,25 @@ const exchangeCode = ref('')
 // 游戏账号管理
 const accountManageVisible = ref(false)
 const accountManageView = ref('accounts')
-const addAccountForm = reactive({ name: '', channel: '', genType: '' })
-const mockAccounts = ref([
-  {
-    id: 1,
-    name: '我的游戏账号',
-    accountName: 'mygame001',
-    channel: '官服',
-    genType: '手动',
-    updateTime: '2026-06-15 14:30',
-  },
-  {
-    id: 2,
-    name: '小号账号',
-    accountName: 'mygame002',
-    channel: 'B服',
-    genType: '自动',
-    updateTime: '2026-07-20 09:12',
-  },
-  {
-    id: 3,
-    name: '测试账号',
-    accountName: 'testgame003',
-    channel: '官服',
-    genType: '手动',
-    updateTime: '2026-08-01 18:45',
-  },
-])
-const mockRoles = ref([
-  { id: 'role_001', name: '主角战士', server: '官方一区' },
-  { id: 'role_002', name: '法师小明', server: '官方二区' },
-  { id: 'role_003', name: '辅助小红', server: 'B服一区' },
-])
+
+// 账号管理列表：由真实脚本列表（scripts）映射，不依赖任何 mock
+const managedAccounts = computed(() =>
+  scripts.value.map((s) => ({
+    id: s.id,
+    name: s.roleName,
+    accountName: s.account,
+    channel: channelLabel(s.channel),
+    server: s.server,
+    expire: s.expire,
+    status: s.status,
+  }))
+)
+
+/** 渠道编码 → 展示名 */
+function channelLabel(channel) {
+  const labels = { official: '官服', bilibili: 'B服', android: '安卓', ios: 'iOS' }
+  return labels[channel] || channel
+}
 
 // 太阳充值（卡密兑换）
 const sunRechargeVisible = ref(false)
@@ -948,15 +840,6 @@ const tutorialVisible = ref(false)
 
 // ==================== 添加脚本 popup 状态 ====================
 const addScriptVisible = ref(false)
-const addScriptStep = ref(0) // 0/1/2
-const addScriptView = ref('step0') // 'step0'|'step1'|'step2'|'addAccount'
-const selectedAccountId = ref(null)
-const selectedRoleId = ref(null)
-const selectedAccount = ref(null)
-const selectedRole = ref(null)
-const scriptRoles = ref([])
-const rolesLoading = ref(false)
-const creating = ref(false)
 
 // ==================== 面板状态 ====================
 
@@ -988,11 +871,7 @@ const statusIframeSrc = ref('')
 
 onMounted(async () => {
   try {
-    scripts.value = await getScriptsAPI()
-    // 预生成每个脚本的日志 mock
-    scripts.value.forEach((s) => {
-      allLogs.value[s.id] = getLogsMock(s.id)
-    })
+    await refreshScripts()
   } catch (e) {
     showFailToast('加载失败')
   }
@@ -1041,6 +920,8 @@ function getChannelColor(channel) {
     android: 'linear-gradient(135deg, #3ddc84, #0f9d58)',
     pc: 'linear-gradient(135deg, #0078d4, #00bcf2)',
     web: 'linear-gradient(135deg, #ff6b35, #f7c948)',
+    official: 'linear-gradient(135deg, #1989fa, #0570e0)',
+    bilibili: 'linear-gradient(135deg, #fb7299, #ee0a6c)',
   }
   return colors[channel] || 'linear-gradient(135deg, #667eea, #764ba2)'
 }
@@ -1051,6 +932,8 @@ function getChannelEmoji(channel) {
     android: '🤖',
     pc: '💻',
     web: '🌐',
+    official: '🎮',
+    bilibili: '🅱️',
   }
   return emojis[channel] || '📱'
 }
@@ -1207,7 +1090,7 @@ async function onActionSelect(action) {
       })
       const res = await deleteScriptAPI(currentScript.value.id)
       if (res.success) {
-        scripts.value = await getScriptsAPI()
+        await refreshScripts()
         showSuccessToast('删除成功')
       }
     } catch (e) {
@@ -1244,7 +1127,7 @@ async function handleRenewConfirm() {
       stored.sun_balance = res.data.sun_balance
       localStorage.setItem('yun_user', JSON.stringify(stored))
     }
-    scripts.value = await getScriptsAPI()
+    await refreshScripts()
     showSuccessToast(`续期成功 ${days} 天（消耗 ${days} ☀️）`)
   } catch (e) {
     showFailToast(e.message || '续期失败')
@@ -1302,38 +1185,27 @@ function openRoles(acct) {
   accountManageView.value = 'roles'
 }
 
-/** 删除账号 */
-function handleDeleteAccount(acct) {
-  showDialog({
-    title: '确认删除',
-    message: `确定删除账号「${acct.name}」吗？`,
-    showCancelButton: true,
-    confirmButtonColor: '#ee0a24',
-  }).then(() => {
-    mockAccounts.value = mockAccounts.value.filter((a) => a.id !== acct.id)
-    showSuccessToast('删除成功')
-  }).catch(() => {})
-}
-
-/** 添加账号 */
-function handleAddAccount() {
-  if (!addAccountForm.name.trim()) {
-    showToast('请填写账号名称')
-    return
+/** 删除账号（即删除真实脚本，删除后不可恢复） */
+async function handleDeleteAccount(acct) {
+  try {
+    await showDialog({
+      title: '确认删除',
+      message: `确定删除账号「${acct.name}」吗？删除后不可恢复。`,
+      showCancelButton: true,
+      confirmButtonColor: '#ee0a24',
+    })
+  } catch (e) {
+    return // 用户取消删除
   }
-  showSuccessToast('添加成功')
-  mockAccounts.value.push({
-    id: Date.now(),
-    name: addAccountForm.name,
-    accountName: addAccountForm.name,
-    channel: addAccountForm.channel || '官服',
-    genType: addAccountForm.genType || '手动',
-    updateTime: new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'),
-  })
-  addAccountForm.name = ''
-  addAccountForm.channel = ''
-  addAccountForm.genType = ''
-  accountManageView.value = 'accounts'
+  try {
+    const res = await deleteScriptAPI(acct.id)
+    if (res.success) {
+      await refreshScripts()
+      showSuccessToast('删除成功')
+    }
+  } catch (e) {
+    showFailToast(e.message || '删除失败')
+  }
 }
 
 /** 打开太阳充值 → 卡密兑换（充值 = 兑换卡密） */
@@ -1541,92 +1413,24 @@ function handleTutorial() {
 
 // ==================== 添加脚本 popup 逻辑 ====================
 
-// 打开 popup 时重置状态
-watch(addScriptVisible, (val) => {
-  if (val) {
-    addScriptStep.value = 0
-    addScriptView.value = 'step0'
-    selectedAccountId.value = null
-    selectedRoleId.value = null
-    selectedAccount.value = null
-    selectedRole.value = null
-    scriptRoles.value = []
-    rolesLoading.value = false
-    creating.value = false
+// 添加脚本流程 = 选择渠道 → 输入账号密码 → 真实绑定（AddAccountForm 内完成），
+// 无角色选择步骤（后端 bind 不返回角色，role_name 为空待获取）
+
+/** 添加账号成功（真实绑定成功）→ 刷新真实脚本列表并返回 */
+async function onAddAccountSuccess() {
+  try {
+    await refreshScripts()
+  } catch (e) {
+    // 列表刷新失败不阻塞成功提示
   }
-})
-
-/** 选择账号：点击 cell → 选中 + 300ms 后自动进入 step1 */
-function onSelectAccount(acc) {
-  selectedAccountId.value = acc.id
-  selectedAccount.value = acc
-  setTimeout(() => {
-    addScriptStep.value = 1
-    addScriptView.value = 'step1'
-    // 加载角色列表
-    loadRoles()
-  }, 300)
-}
-
-/** 加载角色列表（mock） */
-function loadRoles() {
-  rolesLoading.value = true
-  scriptRoles.value = []
-  setTimeout(() => {
-    // 从 mockRoles 取 2~3 条
-    const source = mockRoles.value
-    const count = Math.min(source.length, 2 + (selectedAccount.value?.id % 2 || 0))
-    scriptRoles.value = source.slice(0, count).map((r) => ({
-      id: r.id,
-      roleName: r.name,
-      serverName: r.server,
-    }))
-    rolesLoading.value = false
-  }, 600)
-}
-
-/** 选择角色：点击 cell → 选中 + 300ms 后自动进入 step2 */
-function onSelectRole(r) {
-  selectedRoleId.value = r.id
-  selectedRole.value = r
-  setTimeout(() => {
-    addScriptStep.value = 2
-    addScriptView.value = 'step2'
-  }, 300)
-}
-
-/** 确认创建脚本 */
-function onCreateScript() {
-  creating.value = true
-  setTimeout(() => {
-    creating.value = false
-    showSuccessToast('创建成功')
+  showSuccessToast('绑定成功')
+  if (accountManageVisible.value) {
+    // 账号管理弹窗内绑定：返回账号列表视图（展示真实脚本）
+    accountManageView.value = 'accounts'
+  } else {
+    // 首页添加脚本弹窗绑定：关闭弹窗，回到脚本列表
     addScriptVisible.value = false
-    // 刷新脚本列表
-    getScriptsAPI().then((data) => {
-      scripts.value = data
-    })
-  }, 800)
-}
-
-/** addAccount 视图返回 */
-function onAddScriptBack() {
-  addScriptView.value = 'step0'
-}
-
-/** 添加账号成功回调 */
-function onAddAccountSuccess(data) {
-  showSuccessToast('添加成功')
-  addScriptView.value = 'step0'
-  // 把新账号 mock 加入 mockAccounts
-  mockAccounts.value.push({
-    id: Date.now(),
-    name: data.accountName,
-    accountName: data.accountName,
-    channel: data.channel || '官服',
-    genType: '手动',
-    updateTime: new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'),
-  })
+  }
 }
 </script>
 
