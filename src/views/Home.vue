@@ -1017,18 +1017,18 @@ let logReqSeq = 0 // 请求序号：仅接受最新一次请求的响应，防�
 
 /** 从后端拉取当前面板脚本的日志（date + search 作为查询参数传后端） */
 async function fetchLogs() {
-  if (!panelScript.value) return false
+  if (!panelScript.value) return 'stale'
   const seq = ++logReqSeq
   const id = panelScript.value.id
   const date = logDateFilter.value
   const search = logSearchText.value.trim()
   try {
     const res = await scriptAPI.logs(id, { date, search })
-    if (seq !== logReqSeq) return true // 已有更新的请求，丢弃过期响应
+    if (seq !== logReqSeq) return 'stale' // 已有更新的请求，丢弃过期响应
     allLogs.value[id] = (res.data && res.data.logs) || []
     return true
   } catch (e) {
-    if (seq !== logReqSeq) return true
+    if (seq !== logReqSeq) return 'stale'
     showFailToast(e.message || '日志加载失败')
     return false
   }
@@ -1037,9 +1037,9 @@ async function fetchLogs() {
 /** 刷新日志 */
 async function refreshLogs() {
   showLoadingToast({ message: '刷新中...', duration: 0 })
-  const ok = await fetchLogs()
+  const result = await fetchLogs()
   closeToast()
-  if (ok) showSuccessToast('日志已刷新')
+  if (result === true) showSuccessToast('日志已刷新')
 }
 
 /** 日期筛选变化 → 传 date 参数重新拉取 */
