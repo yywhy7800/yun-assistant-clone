@@ -272,12 +272,9 @@ const mockServerPlugin = {
       res.end(JSON.stringify(data))
     })
 
-    // API 前缀转发（预留，方便后续对接后端）
-    server.middlewares.use('/api', (req, res) => {
-      res.setHeader('Access-Control-Allow-Origin', '*')
-      res.setHeader('Content-Type', 'application/json; charset=utf-8')
-      res.end(JSON.stringify({ code: 500, msg: 'API 未接入' }))
-    })
+    // 注意：/api 前缀已由 server.proxy 转发到真实后端（http://localhost:8000），
+    // 此 mock 分支与 proxy 冲突（插件中间件先注册会先拦截 /api），故移除。
+    // /game/state 仍是 mock（Task 14 才接真实游戏状态）；/game 其他路径走 proxy。
   },
 }
 
@@ -288,6 +285,10 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 8899,
     open: false,
+    proxy: {
+      '/api': 'http://localhost:8000',
+      '/game': 'http://localhost:8000',
+    },
   },
   build: {
     outDir: 'dist',

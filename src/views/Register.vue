@@ -132,14 +132,16 @@ async function handleRegister() {
   try {
     const res = await registerAPI(username.value, password.value)
     if (res.success) {
+      // 注册即登录（registerAPI 已写入 yun_token），标记登录态并跳首页
+      sessionStorage.setItem('yun_is_logged_in', 'true')
       showToast({
         message: '注册成功',
         icon: 'success',
-        duration: 1500,
+        duration: 1000,
       })
       setTimeout(() => {
-        router.replace({ name: 'Login' })
-      }, 800)
+        router.replace('/')
+      }, 300)
     } else {
       showToast(res.message || '注册失败')
     }

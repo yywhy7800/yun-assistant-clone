@@ -1,0 +1,45 @@
+/**
+ * 真实后端 API 客户端（替代 mock）
+ */
+const BASE = '/api'
+
+function getToken() {
+  return localStorage.getItem('yun_token') || ''
+}
+
+async function request(path, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) }
+  const token = getToken()
+  if (token) headers.Authorization = `Bearer ${token}`
+  const resp = await fetch(BASE + path, { ...options, headers })
+  const body = await resp.json().catch(() => ({ success: false, message: '服务器异常' }))
+  if (!resp.ok || body.success === false) {
+    if (resp.status === 401) {
+      localStorage.removeItem('yun_token')
+      localStorage.removeItem('yun_user')
+      window.location.hash = '#/login'
+    }
+    throw new Error(body.detail || body.message || '请求失败')
+  }
+  return body
+}
+
+export const authAPI = {
+  register: (username, password) => request('/auth/register', { method: 'POST', body: JSON.stringify({ username, password }) }),
+  login: (username, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+}
+
+export const scriptAPI = {
+  list: () => request('/scripts'),
+  bind: (data) => request('/scripts', { method: 'POST', body: JSON.stringify(data) }),
+  toggle: (id) => request(`/scripts/${id}/toggle`, { method: 'POST' }),
+  remove: (id) => request(`/scripts/${id}`, { method: 'DELETE' }),
+  renew: (id, days) => request(`/scripts/${id}/renew`, { method: 'POST', body: JSON.stringify({ days }) }),
+  getConfig: (id) => request(`/scripts/${id}/config`),
+  saveConfig: (id, config) => request(`/scripts/${id}/config`, { method: 'PUT', body: JSON.stringify({ config }) }),
+}
+
+export const cardAPI = {
+  redeem: (code) => request('/cards/redeem', { method: 'POST', body: JSON.stringify({ code }) }),
+  records: () => request('/cards/records'),
+}
