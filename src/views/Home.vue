@@ -226,7 +226,7 @@
               v-for="item in dateFilterOptions"
               :key="item.key"
               :class="['date-filter-btn', { active: logDateFilter === item.key }]"
-              @click="logDateFilter = item.key"
+              @click="onLogDateChange(item.key)"
             >
               {{ item.label }}
             </button>
@@ -656,7 +656,6 @@ import {
   deleteScriptAPI,
   renewScriptAPI,
 } from '../api/mock.js'
-import { getLogsMock } from '../api/log-mock.js'
 import AddAccountForm from '../components/AddAccountForm.vue'
 import { authAPI, billingAPI, cardAPI, contentAPI, promoAPI, scriptAPI, sunAPI } from '../api/client'
 
@@ -738,12 +737,9 @@ const renewCost = computed(() => {
 // 脚本列表
 const scripts = ref([])
 
-/** 刷新真实脚本列表（含各脚本日志缓存预生成） */
+/** 刷新真实脚本列表 */
 async function refreshScripts() {
   scripts.value = await getScriptsAPI()
-  scripts.value.forEach((s) => {
-    allLogs.value[s.id] = getLogsMock(s.id)
-  })
 }
 
 // 操作菜单
@@ -903,7 +899,7 @@ onMounted(async () => {
 
 // ==================== 计算属性 ====================
 
-// 经搜索过滤后的日志列表
+// 经搜索过滤后的日志列表（数据为后端真实日志，本地过滤与后端 search 双保险）
 const filteredLogs = computed(() => {
   if (!panelScript.value) return []
   const logs = allLogs.value[panelScript.value.id] || []
@@ -969,12 +965,14 @@ function onConfigIframeLoad() {
   tryUpdate()
 }
 
-/** 打开日志面板 — 原生渲染 */
+/** 打开日志面板 — 原生渲染，打开时拉取今日真实日志 */
 function openLogPanel(script) {
   panelScript.value = script
   logSearchText.value = ''
   logDateFilter.value = 'today'
   logPanelVisible.value = true
+  clearTimeout(logSearchTimer)
+  fetchLogs()
 }
 
 /** 打开状态面板 — iframe 加载原站 status.html */
@@ -1015,20 +1013,48 @@ function handleImportConfig() {
 
 // ==================== 日志面板操作 ====================
 
-/** 刷新日志 */
-function refreshLogs() {
-  showLoadingToast({ message: '刷新中...', duration: 0 })
-  setTimeout(() => {
-    if (!panelScript.value) return
-    allLogs.value[panelScript.value.id] = getLogsMock(panelScript.value.id)
-    closeToast()
-    showSuccessToast('日志已刷新')
-  }, 500)
+let logReqSeq = 0 // 请求序号：仅接受最新一次请求的响应，防止慢响应覆盖新数据
+
+/** 从后端拉取当前面板脚本的日志（date + search 作为查询参数传后端） */
+async function fetchLogs() {
+  if (!panelScript.value) return false
+  const seq = ++logReqSeq
+  const id = panelScript.value.id
+  const date = logDateFilter.value
+  const search = logSearchText.value.trim()
+  try {
+    const res = await scriptAPI.logs(id, { date, search })
+    if (seq !== logReqSeq) return true // 已有更新的请求，丢弃过期响应
+    allLogs.value[id] = (res.data && res.data.logs) || []
+    return true
+  } catch (e) {
+    if (seq !== logReqSeq) return true
+    showFailToast(e.message || '日志加载失败')
+    return false
+  }
 }
 
-/** 搜索日志（实时过滤由 computed 处理） */
+/** 刷新日志 */
+async function refreshLogs() {
+  showLoadingToast({ message: '刷新中...', duration: 0 })
+  const ok = await fetchLogs()
+  closeToast()
+  if (ok) showSuccessToast('日志已刷新')
+}
+
+/** 日期筛选变化 → 传 date 参数重新拉取 */
+function onLogDateChange(key) {
+  logDateFilter.value = key
+  fetchLogs()
+}
+
+/** 搜索输入：本地 computed 即时过滤，300ms 防抖后带 search 参数拉取（避免每次按键打 API） */
+let logSearchTimer = null
 function onLogSearch() {
-  // 搜索由 filteredLogs computed 自动处理
+  clearTimeout(logSearchTimer)
+  logSearchTimer = setTimeout(() => {
+    fetchLogs()
+  }, 300)
 }
 
 // ==================== 状态面板操作 ====================
