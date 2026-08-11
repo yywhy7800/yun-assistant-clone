@@ -1289,7 +1289,9 @@ async function handleSunTransferConfirm() {
       stored.sun_balance = res.data.sun_balance
       localStorage.setItem('yun_user', JSON.stringify(stored))
     }
-    showSuccessToast(res.message || '传递成功')
+    // 展示后端返回的结果（后端 message 已含金额与手续费口径；兜底时补充费用信息）
+    const fee = res.data && res.data.fee !== undefined ? res.data.fee : Math.ceil(amount * 0.1)
+    showSuccessToast(res.message || `传递成功 ${amount} ☀️（已扣手续费 ${fee} ☀️）`)
     sunTransferVisible.value = false
   } catch (e) {
     showFailToast(e.message || '传递失败')
