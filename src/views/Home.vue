@@ -605,6 +605,29 @@
       </div>
     </van-dialog>
 
+    <!-- ==================== 小太阳余额 + 卡密兑换 dialog ==================== -->
+    <van-dialog
+      v-model:show="sunRedeemVisible"
+      title="☀️ 小太阳余额"
+      show-cancel-button
+      confirm-button-text="兑换"
+      :before-close="handleSunRedeemBeforeClose"
+    >
+      <div style="padding: 12px 16px;">
+        <div class="sun-redeem-balance">
+          当前余额：<span class="sun-redeem-value">☀️ {{ sunBalance }}</span>
+        </div>
+        <van-field
+          v-model="sunRedeemCode"
+          label="卡密"
+          placeholder="请输入卡密兑换小太阳"
+          clearable
+          :disabled="redeeming"
+        />
+        <div class="sun-redeem-tip">小太阳可用于兑换脚本运行时长、解锁高级功能、参与平台活动</div>
+      </div>
+    </van-dialog>
+
     <!-- ==================== 添加脚本 popup（原站 AddScriptDialog 复刻） ==================== -->
     <van-popup
       v-model:show="addScriptVisible"
@@ -727,19 +750,39 @@ import {
 } from '../api/mock.js'
 import { getLogsMock } from '../api/log-mock.js'
 import AddAccountForm from '../components/AddAccountForm.vue'
+import { cardAPI, scriptAPI } from '../api/client'
 
 const router = useRouter()
 
 // ==================== 挂载全局接口（供 iframe 内 config.js 调用） ====================
 
-// config.js 加载完成后会调用此函数获取已保存配置
+// config.js 加载完成后会调用此函数获取已保存配置（真实后端 script_configs）
 // 返回 '{}' → config.js 使用 schema 默认值渲染完整表单
-window.getScriptConfig = () => '{}'
+window.getScriptConfig = async (scriptId) => {
+  const id = panelScript.value?.id ?? scriptId
+  if (!id) return '{}'
+  try {
+    const res = await scriptAPI.getConfig(id)
+    return JSON.stringify(res.data.config)
+  } catch (e) {
+    console.warn('[Home] getScriptConfig 失败:', e.message)
+    return '{}'
+  }
+}
 
-// config.js 保存时调用此函数
-window.saveScriptConfig = (configJson) => {
-  showToast('配置已保存')
-  console.log('[Home] saveScriptConfig:', configJson)
+// config.js 保存时调用此函数（写入后端 script_configs）
+window.saveScriptConfig = async (configJson) => {
+  try {
+    const id = panelScript.value?.id
+    if (!id) {
+      showFailToast('脚本信息缺失，无法保存')
+      return
+    }
+    await scriptAPI.saveConfig(id, JSON.parse(configJson))
+    showSuccessToast('配置已保存')
+  } catch (e) {
+    showFailToast(e.message || '保存失败')
+  }
 }
 
 // ==================== 基础状态 ====================
@@ -747,8 +790,21 @@ window.saveScriptConfig = (configJson) => {
 // 当前用户名（从 sessionStorage 获取）
 const username = ref(sessionStorage.getItem('yun_username') || 'Unworthy014')
 
-// 小太阳余额
-const sunBalance = ref(35)
+// 小太阳余额（优先取登录时后端返回的 sun_balance，缺省 35）
+function getStoredSunBalance() {
+  try {
+    const user = JSON.parse(localStorage.getItem('yun_user') || '{}')
+    return typeof user.sun_balance === 'number' ? user.sun_balance : 35
+  } catch {
+    return 35
+  }
+}
+const sunBalance = ref(getStoredSunBalance())
+
+// 小太阳余额弹窗（卡密兑换）
+const sunRedeemVisible = ref(false)
+const sunRedeemCode = ref('')
+const redeeming = ref(false)
 
 // 脚本列表
 const scripts = ref([])
@@ -957,16 +1013,16 @@ function openConfigPanel(script) {
   configPanelVisible.value = true
 }
 
-/** iframe 加载完成回调 — 通知 config.js 更新配置并解除 loading */
+/** iframe 加载完成回调 — 从后端读配置 → 通知 config.js 更新配置并解除 loading */
 function onConfigIframeLoad() {
   console.log('[Home] 配置 iframe 加载完成')
   // config.js 在生产模式（有父窗口）下必须等父窗口调用 updateConfigFromParent
   // 才会隐藏 loading 并显示表单内容，否则永远卡在「加载中」
-  const tryUpdate = (attempt = 0) => {
+  const tryUpdate = async (attempt = 0) => {
     const cw = configIframeRef.value?.contentWindow
     if (cw?.updateConfigFromParent) {
-      // 传 '{}' → config.js 会用 schema 默认值 + merge 逻辑渲染完整表单
-      cw.updateConfigFromParent('{}')
+      // 从后端读取真实配置 → config.js 用 schema 默认值 + merge 逻辑渲染完整表单
+      cw.updateConfigFromParent(await window.getScriptConfig())
       console.log('[Home] updateConfigFromParent 调用成功')
     } else if (attempt < 15) {
       // 脚本可能尚未加载完成，最多重试 15 次（约 4.5s）
@@ -1009,9 +1065,14 @@ function onStatusIframeLoad() {
 
 // ==================== 配置面板操作 ====================
 
-/** 保存配置 — 转发给 iframe 内 config.js */
+/** 保存配置 — 触发 iframe 内 config.js 的 saveConfig → window.parent.saveScriptConfig → 后端 */
 function handleSaveConfig() {
-  showToast('配置已保存')
+  const cw = configIframeRef.value?.contentWindow
+  if (cw && typeof cw.saveConfig === 'function') {
+    cw.saveConfig()
+  } else {
+    showToast('配置面板尚未加载完成')
+  }
 }
 
 /** 导入配置 */
@@ -1295,13 +1356,38 @@ function handleLogout() {
   }).catch(() => {})
 }
 
-/** 小太阳余额点击 */
+/** 小太阳余额点击 → 弹出余额 + 卡密兑换 */
 function handleSunClick() {
-  showDialog({
-    title: '☀️ 小太阳余额',
-    message: `当前余额：${sunBalance.value} 个小太阳\n\n小太阳可用于：\n• 兑换脚本运行时长\n• 解锁高级功能\n• 参与平台活动`,
-    confirmButtonColor: '#667eea',
-  })
+  sunRedeemCode.value = ''
+  sunRedeemVisible.value = true
+}
+
+/** 兑换确认（before-close：校验卡密 → 调后端 → 成功才关闭弹窗） */
+async function handleSunRedeemBeforeClose(action) {
+  if (action !== 'confirm') return true
+  const code = sunRedeemCode.value.trim()
+  if (!code) {
+    showToast('请输入卡密')
+    return false
+  }
+  redeeming.value = true
+  try {
+    const res = await cardAPI.redeem(code)
+    sunBalance.value = res.data.sun_balance
+    // 同步写回 localStorage，刷新页面后余额不丢失
+    try {
+      const user = JSON.parse(localStorage.getItem('yun_user') || '{}')
+      user.sun_balance = res.data.sun_balance
+      localStorage.setItem('yun_user', JSON.stringify(user))
+    } catch {}
+    showSuccessToast(res.message || '兑换成功')
+    return true
+  } catch (e) {
+    showFailToast(e.message || '兑换失败')
+    return false
+  } finally {
+    redeeming.value = false
+  }
 }
 
 /** 教程按钮 */
@@ -1927,6 +2013,30 @@ function onAddAccountSuccess(data) {
   font-size: 14px;
   color: #e53935;
   margin-top: 4px;
+}
+
+/* ==================== 小太阳余额 + 卡密兑换 ==================== */
+
+.sun-redeem-balance {
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: #666;
+}
+
+.sun-redeem-value {
+  color: #f5a623;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.sun-redeem-tip {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: #fff7e6;
+  border-radius: 8px;
+  color: #ed6a0c;
+  font-size: 12px;
+  text-align: center;
 }
 
 /* ==================== 阳光传递费用明细 ==================== */
