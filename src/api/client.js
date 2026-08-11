@@ -29,7 +29,9 @@ async function request(path, options = {}) {
       sessionStorage.removeItem('yun_username')
       window.location.hash = '#/login'
     }
-    throw new Error(body.detail || body.message || '请求失败')
+    const err = new Error(body.detail || body.message || '请求失败')
+    if (resp.status === 401) err.status = 401
+    throw err
   }
   return body
 }

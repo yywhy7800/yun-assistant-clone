@@ -904,8 +904,10 @@ onMounted(async () => {
       localStorage.setItem('yun_user', JSON.stringify(stored))
     } catch (e) {}
   } catch (e) {
-    // 同步失败：保留缓存展示但明确提示（非阻塞），不伪造数据（401 时 client.js 已清登录态并跳登录页）
-    showToast('余额/身份同步失败，显示的可能不是最新数据')
+    // 401 时 client.js 已清登录态并跳登录页，静默不提示；其余失败保留缓存展示但非阻塞提示，不伪造数据
+    if (e.status !== 401) {
+      showToast('余额/身份同步失败，显示的可能不是最新数据')
+    }
   }
 })
 
@@ -1302,9 +1304,12 @@ async function handleSunTransferConfirm() {
     // 刷新余额（后端返回扣减后余额）
     if (res.data && res.data.sun_balance !== undefined) {
       sunBalance.value = res.data.sun_balance
-      const stored = JSON.parse(localStorage.getItem('yun_user') || '{}')
-      stored.sun_balance = res.data.sun_balance
-      localStorage.setItem('yun_user', JSON.stringify(stored))
+      // 缓存写回独立容错：缓存损坏只影响缓存，不影响成功提示与弹窗关闭
+      try {
+        const stored = JSON.parse(localStorage.getItem('yun_user') || '{}')
+        stored.sun_balance = res.data.sun_balance
+        localStorage.setItem('yun_user', JSON.stringify(stored))
+      } catch (e) {}
     }
     // 展示后端返回的结果（后端 message 已含金额与手续费口径；兜底时用 calcFee 补充）
     const fee = res.data && res.data.fee !== undefined ? res.data.fee : calcFee(amount)
