@@ -635,7 +635,7 @@
 
   function loadStatus() {
     if (!scriptInfo || !scriptInfo.scriptId) {
-      showError('节点信息不可用');
+      showError('脚本信息不可用');
       return;
     }
     // 立即显示 loading 遮罩，隐藏旧内容
@@ -648,11 +648,12 @@
     if (token) headers.Authorization = 'Bearer ' + token;
     fetch('/game/state/' + scriptInfo.scriptId, { headers: headers })
       .then(function(resp) {
+        // 401 判断优先于 JSON 解析，避免非 JSON 响应体掩盖登录过期提示
+        if (resp.status === 401) {
+          showError('登录已过期，请重新登录后查看状态');
+          return;
+        }
         return resp.json().then(function(body) {
-          if (resp.status === 401) {
-            showError('登录已过期，请重新登录后查看状态');
-            return;
-          }
           // 真实后端结构：{ success, message, data: { code, land, items, statistics, scriptId } }
           if (!body || body.success !== true || !body.data) {
             showError((body && (body.message || body.detail)) || '获取状态失败');
@@ -660,7 +661,7 @@
           }
           var data = body.data;
           if (data.code !== 200) {
-            showError('获取状态失败');
+            showError(data.message || '获取状态失败');
             return;
           }
           landData = data.land;

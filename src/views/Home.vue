@@ -990,8 +990,6 @@ function onStatusIframeLoad() {
   const iframe = statusIframeRef.value
   if (iframe && iframe.contentWindow && iframe.contentWindow.initStatusPage) {
     iframe.contentWindow.initStatusPage({
-      nodeIp: window.location.hostname,
-      nodePort: window.location.port || '80',
       scriptId: panelScript.value.id,
     })
     console.log('[Home] initStatusPage 已调用, scriptId:', panelScript.value.id)
@@ -1040,8 +1038,6 @@ function refreshStatus() {
   const iframe = statusIframeRef.value
   if (iframe && iframe.contentWindow && iframe.contentWindow.initStatusPage) {
     iframe.contentWindow.initStatusPage({
-      nodeIp: window.location.hostname,
-      nodePort: window.location.port || '80',
       scriptId: panelScript.value.id,
     })
     showToast('状态已刷新')
