@@ -617,6 +617,17 @@
   var Q_NAME = ['', '凡', '普', '珍', '华', '仙'];
   var STATE_NAME = ['未种植', '待浇水', '待成熟', '可收获'];
 
+  /** HTML 转义：接口返回的外部文本一律经此函数后再拼入 HTML */
+  function escapeHtml(v) {
+    if (v === null || v === undefined) return '';
+    return String(v)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function initStatusPage(info) {
     scriptInfo = info;
     loadStatus();
@@ -675,11 +686,11 @@
     var freeCount = details.filter(function(d) { return d.state === 0 || d.state === -1; }).length;
     var s = document.getElementById('summary');
     s.innerHTML =
-      '<div class="summary-item"><span class="dot dot-free"></span>空地 ' + freeCount + '</div>' +
-      '<div class="summary-item"><span class="dot dot-water"></span>待浇水 ' + land.watering + '</div>' +
-      '<div class="summary-item"><span class="dot dot-wait"></span>待成熟 ' + land.waitHarvest + '</div>' +
-      '<div class="summary-item"><span class="dot dot-ready"></span>可收获 ' + land.harvestReady + '</div>' +
-      '<div class="summary-item" style="margin-left:auto;color:#aaa">共 ' + land.total + ' 块</div>';
+      '<div class="summary-item"><span class="dot dot-free"></span>空地 ' + escapeHtml(freeCount) + '</div>' +
+      '<div class="summary-item"><span class="dot dot-water"></span>待浇水 ' + escapeHtml(land.watering) + '</div>' +
+      '<div class="summary-item"><span class="dot dot-wait"></span>待成熟 ' + escapeHtml(land.waitHarvest) + '</div>' +
+      '<div class="summary-item"><span class="dot dot-ready"></span>可收获 ' + escapeHtml(land.harvestReady) + '</div>' +
+      '<div class="summary-item" style="margin-left:auto;color:#aaa">共 ' + escapeHtml(land.total) + ' 块</div>';
 
     // 按 landId 建索引方便查找
     var landMap = {};
@@ -870,7 +881,7 @@
     if (co) {
       panelCO.style.display = 'block';
       var coHtml = '<div class="customer-order-info">' +
-        '<span class="panel-label">已创建</span><span class="panel-val">' + (co.createCount || 0) + ' 单</span>' +
+        '<span class="panel-label">已创建</span><span class="panel-val">' + escapeHtml(co.createCount || 0) + ' 单</span>' +
         '</div>';
       if (co.nextGenTime) {
         var remaining = Math.ceil((co.nextGenTime - Date.now()) / 60000);
@@ -882,8 +893,8 @@
         coHtml += '<div class="customer-order-list">' +
           coOrders.map(function(o) {
             return '<div class="customer-order-item">' +
-              '<span class="customer-order-name">' + (o.artName || '花艺') + '</span>' +
-              '<span class="customer-order-num">×' + (o.num || 1) + '</span>' +
+              '<span class="customer-order-name">' + escapeHtml(o.artName || '花艺') + '</span>' +
+              '<span class="customer-order-num">×' + escapeHtml(o.num || 1) + '</span>' +
               '</div>';
           }).join('') +
           '</div>';
@@ -902,7 +913,7 @@
       // 头部：积分 + 结束时间
       var shnEmsStr = shn.ems ? formatTime(shn.ems) : '-';
       shnHtml += '<div class="shihua-header">';
-      shnHtml += '<span class="panel-val">积分 ' + (shn.score != null ? shn.score : '-') + '</span>';
+      shnHtml += '<span class="panel-val">积分 ' + escapeHtml(shn.score != null ? shn.score : '-') + '</span>';
       shnHtml += '<span class="panel-label">' + shnEmsStr + ' 结束</span>';
       shnHtml += '</div>';
       // 订单列表
@@ -913,21 +924,21 @@
           var cls = 'shihua-order-item' + (o.ready ? ' ready' : ' waiting');
           var statusStr, statusCls;
           if (o.ready) {
-            var readyStock = o.required ? (o.stock || 0) + '/' + o.required + ' · ' : '';
+            var readyStock = o.required ? escapeHtml(o.stock || 0) + '/' + escapeHtml(o.required) + ' · ' : '';
             statusStr = readyStock + '✓ 可领取';
             statusCls = 'shihua-order-status ready';
           } else if (o.validTime) {
             var leftMin = Math.ceil((o.validTime - Date.now()) / 60000);
             var cdStr = leftMin > 0 ? leftMin + '分钟后' : '即将可领';
-            var stockStr = o.required ? (o.stock || 0) + '/' + o.required : '';
+            var stockStr = o.required ? escapeHtml(o.stock || 0) + '/' + escapeHtml(o.required) : '';
             statusStr = stockStr ? stockStr + ' · ' + cdStr : cdStr;
             statusCls = 'shihua-order-status';
           } else {
-            statusStr = o.required ? (o.stock || 0) + '/' + o.required : '-';
+            statusStr = o.required ? escapeHtml(o.stock || 0) + '/' + escapeHtml(o.required) : '-';
             statusCls = 'shihua-order-status';
           }
           shnHtml += '<div class="' + cls + '">';
-          shnHtml += '<span class="shihua-order-name">' + (o.flowerName || '花卉#' + o.flowerId) + '</span>';
+          shnHtml += '<span class="shihua-order-name">' + (escapeHtml(o.flowerName) || '花卉#' + escapeHtml(o.flowerId)) + '</span>';
           shnHtml += '<span class="' + statusCls + '">' + statusStr + '</span>';
           shnHtml += '</div>';
         });
@@ -962,10 +973,10 @@
       }
       phHtml += '<div class="pearl-row"><span class="panel-label">我的珍珠</span><span class="panel-val">' + myStateStr + '</span></div>';
       phHtml += endRowHtml;
-      phHtml += '<div class="pearl-row"><span class="panel-label">护身符</span><span class="panel-val">' + (ph.protectSymbolNum || 0) + ' 个 / 护身 ' + protectStr + '</span></div>';
-      phHtml += '<div class="pearl-row"><span class="panel-label">今日雇佣</span><span class="panel-val">' + (ph.todayHired || 0) + ' / ' + (ph.hireBookLimit || 0) + ' 次</span></div>';
+      phHtml += '<div class="pearl-row"><span class="panel-label">护身符</span><span class="panel-val">' + escapeHtml(ph.protectSymbolNum || 0) + ' 个 / 护身 ' + protectStr + '</span></div>';
+      phHtml += '<div class="pearl-row"><span class="panel-label">今日雇佣</span><span class="panel-val">' + escapeHtml(ph.todayHired || 0) + ' / ' + escapeHtml(ph.hireBookLimit || 0) + ' 次</span></div>';
       if (ph.hireBookYuanBaoLimit > 0) {
-        phHtml += '<div class="pearl-row"><span class="panel-label">今日买书元宝</span><span class="panel-val">' + (ph.hireBookUsedYuanBao || 0) + ' / ' + ph.hireBookYuanBaoLimit + '</span></div>';
+        phHtml += '<div class="pearl-row"><span class="panel-label">今日买书元宝</span><span class="panel-val">' + escapeHtml(ph.hireBookUsedYuanBao || 0) + ' / ' + escapeHtml(ph.hireBookYuanBaoLimit) + '</span></div>';
       }
 
       // 场地列表
@@ -978,7 +989,7 @@
           var hasLabor = !locked && p.laborUid && p.laborUid !== 0;
           var cls = 'pearl-place-item' + (locked ? ' locked' : hasLabor ? ' hired' : '');
           phHtml += '<div class="' + cls + '">';
-          phHtml += '<div class="pearl-place-id">场地 ' + p.placeId + (locked ? ' <span style="color:#bbb">VIP</span>' : '') + '</div>';
+          phHtml += '<div class="pearl-place-id">场地 ' + escapeHtml(p.placeId) + (locked ? ' <span style="color:#bbb">VIP</span>' : '') + '</div>';
           if (locked) {
             phHtml += '<div class="pearl-place-val" style="color:#bbb">未开通</div>';
           } else if (hasLabor) {
@@ -1008,7 +1019,7 @@
 
       // 赛季 + 本人积分
       var usrRcd = fr.usrRcd;
-      var scoreStr = usrRcd ? usrRcd.score : '-';
+      var scoreStr = escapeHtml(usrRcd ? usrRcd.score : '-');
       var batchStr = '';
       if (fr.batch) {
         var bd = new Date(fr.batch.batchId);
@@ -1018,7 +1029,7 @@
           batchStr += '（' + (ed.getMonth()+1) + '/' + ed.getDate() + ' ' + ed.getHours() + ':' + pad(ed.getMinutes()) + ' 结束）';
         }
       }
-      var fTaskStr = usrRcd ? ('已接' + (usrRcd.fTaskNum || 0) + '/' + (usrRcd.taskLimit || '-') + '次') : '';
+      var fTaskStr = usrRcd ? ('已接' + escapeHtml(usrRcd.fTaskNum || 0) + '/' + escapeHtml(usrRcd.taskLimit || '-') + '次') : '';
       frHtml += '<div class="race-header-row">';
       frHtml += '<span class="race-score">积分 ' + scoreStr + '</span>';
       frHtml += '<span class="race-meta">' + [batchStr, fTaskStr].filter(Boolean).join(' · ') + '</span>';
@@ -1031,11 +1042,11 @@
       if (taking && taking.taskId) {
         var expireLeft = taking.expireTime ? Math.ceil((taking.expireTime - Date.now()) / 60000) : null;
         var expireStr = expireLeft != null ? (expireLeft > 0 ? '剩余 ' + expireLeft + ' 分钟' : '已过期') : '';
-        frHtml += '<div class="race-taking-name">' + (taking.taskName || '任务#' + taking.taskId) +
+        frHtml += '<div class="race-taking-name">' + (escapeHtml(taking.taskName) || '任务#' + escapeHtml(taking.taskId)) +
           (taking.isUpgrade === 1 ? '<span class="race-badge race-badge-upgrade">升级</span>' : '') + '</div>';
         frHtml += '<div class="race-taking-progress">';
-        frHtml += '进度 ' + (taking.finishCnt || 0) + ' / ' + (taking.targetCnt || 0);
-        frHtml += (taking.score ? '  分值 ' + taking.score : '');
+        frHtml += '进度 ' + escapeHtml(taking.finishCnt || 0) + ' / ' + escapeHtml(taking.targetCnt || 0);
+        frHtml += (taking.score ? '  分值 ' + escapeHtml(taking.score) : '');
         frHtml += (expireStr ? '  ' + expireStr : '');
         frHtml += '</div>';
       } else {
@@ -1067,21 +1078,21 @@
           var badges = '';
           if (t.taskKey === 'sysUpgrade') badges += '<span class="race-badge race-badge-sys-upgrade">系统升级</span>';
           else if (t.taskKey === 'selfUpgrade') badges += '<span class="race-badge race-badge-self-upgrade">自己升级</span>';
-          else if (t.taskKey === 'otherUpgrade') badges += '<span class="race-badge race-badge-other-upgrade">他人升级' + (t.upgradeUserName ? '(' + t.upgradeUserName + ')' : '') + '</span>';
+          else if (t.taskKey === 'otherUpgrade') badges += '<span class="race-badge race-badge-other-upgrade">他人升级' + (t.upgradeUserName ? '(' + escapeHtml(t.upgradeUserName) + ')' : '') + '</span>';
           if (isMine) badges += '<span class="race-badge race-badge-me">进行中</span>';
-          else if (isTakenByOther) badges += '<span class="race-badge race-badge-taken">已被接取' + (t.takenUserName ? '(' + t.takenUserName + ')' : '') + '</span>';
+          else if (isTakenByOther) badges += '<span class="race-badge race-badge-taken">已被接取' + (t.takenUserName ? '(' + escapeHtml(t.takenUserName) + ')' : '') + '</span>';
           else if (t.canTake) badges += '<span class="race-badge race-badge-cantake">可接</span>';
           if (t.inCd) {
             var cdD = t.appearTime ? new Date(t.appearTime) : null;
             var cdStr = cdD ? (pad(cdD.getHours()) + ':' + pad(cdD.getMinutes()) + ':' + pad(cdD.getSeconds())) : '';
             badges += '<span class="race-badge race-badge-cd">CD' + (cdStr ? ' 至' + cdStr : '') + '</span>';
           }
-          var scoreVal = t.score != null ? t.score : '-';
+          var scoreVal = escapeHtml(t.score != null ? t.score : '-');
           frHtml += '<div class="' + itemCls + '">';
-          frHtml += '<div class="race-task-grid-id">#' + (t.gridId != null ? t.gridId : '-') + badges + '</div>';
-          frHtml += '<div class="race-task-name">' + (t.taskName || '任务#' + t.taskId) + '</div>';
+          frHtml += '<div class="race-task-grid-id">#' + escapeHtml(t.gridId != null ? t.gridId : '-') + badges + '</div>';
+          frHtml += '<div class="race-task-name">' + (escapeHtml(t.taskName) || '任务#' + escapeHtml(t.taskId)) + '</div>';
           if (t.blockReason && !isMine) {
-            frHtml += '<div class="race-task-reason">' + t.blockReason + '</div>';
+            frHtml += '<div class="race-task-reason">' + escapeHtml(t.blockReason) + '</div>';
           }
           frHtml += '<div class="race-task-score">' + scoreVal + '分</div>';
           frHtml += '</div>';
@@ -1136,19 +1147,19 @@
     if (st <= 0) {
       tip.innerHTML =
         '<div style="margin-bottom:4px;font-weight:600;color:#ccc">未种植</div>' +
-        row('地块', '#' + d.landId) +
+        row('地块', '#' + escapeHtml(d.landId)) +
         row('状态', '未种植');
     } else {
       var nextStr = d.nextTime ? formatTime(d.nextTime) : '-';
       var plantStr = d.plantTime ? formatTime(d.plantTime) : '-';
       tip.innerHTML =
-        '<div style="margin-bottom:4px;font-weight:600">' + (d.flowerName || '未知') +
+        '<div style="margin-bottom:4px;font-weight:600">' + (escapeHtml(d.flowerName) || '未知') +
         (d.flowerQuality ? ' <span style="color:#ef9a2a">[' + (Q_NAME[d.flowerQuality] || '') + ']</span>' : '') + '</div>' +
-        row('地块', '#' + d.landId) +
+        row('地块', '#' + escapeHtml(d.landId)) +
         row('状态', STATE_NAME[st] || st) +
-        row('等级', d.lvl || '-') +
+        row('等级', escapeHtml(d.lvl || '-')) +
         row('品质', Q_NAME[d.flowerQuality] || '-') +
-        row('收取', (d.harvestCnt || 0) + '/' + (d.frequencys || 0) + '  剩余' + (d.remainHarvest || 0)) +
+        row('收取', escapeHtml(d.harvestCnt || 0) + '/' + escapeHtml(d.frequencys || 0) + '  剩余' + escapeHtml(d.remainHarvest || 0)) +
         row('下次操作', nextStr) +
         row('种植时间', plantStr);
     }
@@ -1176,12 +1187,12 @@
     var flowers = o.flowers || [];
     var tagsHtml = flowers.length > 0
       ? flowers.map(function(f) {
-          return '<span class="order-flower-tag">' + f.flowerName + ' ×' + f.count + '</span>';
+          return '<span class="order-flower-tag">' + escapeHtml(f.flowerName) + ' ×' + escapeHtml(f.count) + '</span>';
         }).join('')
       : '<span style="color:#bbb;font-size:11px">暂无需求</span>';
     var headerHtml = '';
     if (o.npcName) {
-      headerHtml = '<div class="order-npc">' + o.npcName +
+      headerHtml = '<div class="order-npc">' + escapeHtml(o.npcName) +
         (o.isVideo === 1 ? ' <span class="order-video-tag">视频</span>' : '') +
         '</div>';
     }
@@ -1205,7 +1216,7 @@
   }
 
   function pitem(label, val) {
-    return '<div class="panel-item"><span class="panel-label">' + label + '</span><span class="panel-val">' + (val !== undefined && val !== null ? val : '-') + '</span></div>';
+    return '<div class="panel-item"><span class="panel-label">' + label + '</span><span class="panel-val">' + escapeHtml(val !== undefined && val !== null ? val : '-') + '</span></div>';
   }
 
   function row(label, val) {
@@ -1237,8 +1248,8 @@
     }
     document.getElementById('flowerStockGrid').innerHTML = list.map(function(f) {
       return '<div class="flower-stock-item">' +
-        '<span class="flower-stock-name">' + f.flowerName + '</span>' +
-        '<span class="flower-stock-num">' + f.stock + '</span>' +
+        '<span class="flower-stock-name">' + escapeHtml(f.flowerName) + '</span>' +
+        '<span class="flower-stock-num">' + escapeHtml(f.stock) + '</span>' +
         '</div>';
     }).join('');
   }
