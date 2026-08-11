@@ -541,14 +541,14 @@
         <van-field v-model="sunTransferForm.targetId" label="对方ID" type="digit" placeholder="请输入对方的ID" />
         <van-field label="赠送数量">
           <template #input>
-            <van-stepper v-model="sunTransferForm.amount" :min="1" :max="99999" integer />
+            <van-stepper v-model="sunTransferForm.amount" :min="1" :max="10000" integer />
           </template>
         </van-field>
         <div v-if="sunTransferForm.amount > 0" class="transfer-fee-detail">
           <div>赠送数量：{{ sunTransferForm.amount }} 太阳</div>
-          <div>手续费（10%）：{{ Math.ceil(sunTransferForm.amount * 0.1) }} 太阳</div>
+          <div>手续费（10%）：{{ calcFee(sunTransferForm.amount) }} 太阳</div>
           <div style="font-weight: bold; color: #e53935;">
-            实际扣除：{{ sunTransferForm.amount + Math.ceil(sunTransferForm.amount * 0.1) }} 太阳
+            实际扣除：{{ sunTransferForm.amount + calcFee(sunTransferForm.amount) }} 太阳
           </div>
         </div>
       </div>
@@ -788,6 +788,9 @@ const sunRechargeVisible = ref(false)
 // 阳光传递
 const sunTransferVisible = ref(false)
 const sunTransferForm = reactive({ targetId: '', amount: 1 })
+
+/** 手续费唯一出口：10% 向上取整，与后端 calc_fee 口径一致 */
+const calcFee = (n) => Math.ceil(n * 0.1)
 
 // 太阳流水（真实后端数据）
 const sunTransactionsVisible = ref(false)
@@ -1289,9 +1292,9 @@ async function handleSunTransferConfirm() {
       stored.sun_balance = res.data.sun_balance
       localStorage.setItem('yun_user', JSON.stringify(stored))
     }
-    // 展示后端返回的结果（后端 message 已含金额与手续费口径；兜底时补充费用信息）
-    const fee = res.data && res.data.fee !== undefined ? res.data.fee : Math.ceil(amount * 0.1)
-    showSuccessToast(res.message || `传递成功 ${amount} ☀️（已扣手续费 ${fee} ☀️）`)
+    // 展示后端返回的结果（后端 message 已含金额与手续费口径；兜底时用 calcFee 补充）
+    const fee = res.data && res.data.fee !== undefined ? res.data.fee : calcFee(amount)
+    showSuccessToast(res.message || `传递成功 ${amount} ☀️（手续费 ${fee}）`)
     sunTransferVisible.value = false
   } catch (e) {
     showFailToast(e.message || '传递失败')
