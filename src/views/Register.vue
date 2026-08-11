@@ -146,7 +146,9 @@ async function handleRegister() {
       showToast(res.message || '注册失败')
     }
   } catch (e) {
-    showToast('网络错误，请重试')
+    // 显示后端真实错误（client.js 已抛出 e.message：如"用户名已存在"），网络异常时才用兜底文案
+    const isNetwork = e instanceof TypeError && !e.message
+    showToast(isNetwork ? '网络错误，请重试' : e.message || '注册失败')
   } finally {
     loading.value = false
   }
