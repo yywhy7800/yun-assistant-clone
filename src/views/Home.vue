@@ -119,7 +119,7 @@
 
     <!-- 底部固定添加按钮 -->
     <div class="add-btn">
-      <van-button type="primary" size="large" round block @click="goAddAccount">
+      <van-button type="primary" size="large" round block @click="addScriptVisible = true">
         + 添加脚本
       </van-button>
     </div>
@@ -604,11 +604,119 @@
         <van-field v-model="passwordForm.newPassword" type="password" label="新密码" placeholder="请输入新密码" />
       </div>
     </van-dialog>
+
+    <!-- ==================== 添加脚本 popup（原站 AddScriptDialog 复刻） ==================== -->
+    <van-popup
+      v-model:show="addScriptVisible"
+      position="bottom"
+      :style="{ height: '85%' }"
+      round
+      :close-on-click-overlay="false"
+    >
+      <div class="panel-container">
+        <!-- NavBar -->
+        <van-nav-bar
+          :title="addScriptView === 'addAccount' ? '添加游戏账号' : '添加脚本'"
+          :left-arrow="addScriptView === 'addAccount'"
+          @click-left="onAddScriptBack"
+        >
+          <template v-if="addScriptView !== 'addAccount'" #right>
+            <van-icon name="cross" size="18" @click="addScriptVisible = false" />
+          </template>
+        </van-nav-bar>
+
+        <!-- 步骤条（仅非 addAccount 视图） -->
+        <div v-if="addScriptView !== 'addAccount'" class="add-script-steps">
+          <van-steps :active="addScriptStep" active-icon="success" active-color="#07c160">
+            <van-step>选择账号</van-step>
+            <van-step>选择角色</van-step>
+            <van-step>确认创建</van-step>
+          </van-steps>
+        </div>
+
+        <!-- step0：选择账号 -->
+        <div v-if="addScriptView === 'step0'" class="panel-body">
+          <van-radio-group v-model="selectedAccountId">
+            <van-cell-group>
+              <van-cell
+                v-for="acc in mockAccounts"
+                :key="acc.id"
+                :title="acc.accountName"
+                :label="`更新时间: ${acc.updateTime}`"
+                clickable
+                @click="onSelectAccount(acc)"
+              >
+                <template #right-icon>
+                  <van-radio :name="acc.id" />
+                </template>
+              </van-cell>
+            </van-cell-group>
+          </van-radio-group>
+          <van-empty v-if="mockAccounts.length === 0" description="暂无游戏账号" />
+          <div class="add-new-row" @click="addScriptView = 'addAccount'">
+            <van-icon name="plus" size="16" color="#1989fa" />
+            <span>添加/同步账号</span>
+          </div>
+        </div>
+
+        <!-- step1：选择角色 -->
+        <div v-if="addScriptView === 'step1'" class="panel-body">
+          <div v-if="rolesLoading" style="text-align: center; padding: 40px;">
+            <van-loading size="24" vertical>加载角色列表中...</van-loading>
+          </div>
+          <template v-else>
+            <van-empty v-if="scriptRoles.length === 0" description="该账号下暂无角色" />
+            <van-radio-group v-else v-model="selectedRoleId">
+              <van-cell-group>
+                <van-cell
+                  v-for="r in scriptRoles"
+                  :key="r.id"
+                  :title="r.roleName"
+                  :label="`服务器: ${r.serverName}`"
+                  clickable
+                  @click="onSelectRole(r)"
+                >
+                  <template #right-icon>
+                    <van-radio :name="r.id" />
+                  </template>
+                </van-cell>
+              </van-cell-group>
+            </van-radio-group>
+          </template>
+        </div>
+
+        <!-- step2：确认创建 -->
+        <div v-if="addScriptView === 'step2'" class="panel-body">
+          <div class="confirm-card">
+            <div class="confirm-section">
+              <div class="confirm-label">所选账号</div>
+              <div class="confirm-value">{{ selectedAccount?.accountName }}</div>
+              <div class="confirm-sub">更新时间：{{ selectedAccount?.updateTime }}</div>
+            </div>
+            <div class="confirm-section">
+              <div class="confirm-label">所选角色</div>
+              <div class="confirm-value">{{ selectedRole?.roleName }}</div>
+              <div class="confirm-sub">服务器：{{ selectedRole?.serverName }}</div>
+            </div>
+          </div>
+          <div class="form-submit">
+            <van-button type="primary" round block :loading="creating" loading-text="创建中..." @click="onCreateScript">
+              确认创建
+            </van-button>
+          </div>
+        </div>
+
+        <!-- addAccount 视图 -->
+        <div v-if="addScriptView === 'addAccount'" class="panel-body">
+          <AddAccountForm @success="onAddAccountSuccess" @cancel="addScriptView = 'step0'" />
+        </div>
+      </div>
+    </van-popup>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast, showDialog, showSuccessToast, showFailToast, showLoadingToast, closeToast } from 'vant'
 import {
@@ -618,6 +726,7 @@ import {
   renewScriptAPI,
 } from '../api/mock.js'
 import { getLogsMock } from '../api/log-mock.js'
+import AddAccountForm from '../components/AddAccountForm.vue'
 
 const router = useRouter()
 
@@ -752,6 +861,18 @@ const passwordForm = reactive({ oldPassword: '', newPassword: '' })
 
 // 教程弹窗
 const tutorialVisible = ref(false)
+
+// ==================== 添加脚本 popup 状态 ====================
+const addScriptVisible = ref(false)
+const addScriptStep = ref(0) // 0/1/2
+const addScriptView = ref('step0') // 'step0'|'step1'|'step2'|'addAccount'
+const selectedAccountId = ref(null)
+const selectedRoleId = ref(null)
+const selectedAccount = ref(null)
+const selectedRole = ref(null)
+const scriptRoles = ref([])
+const rolesLoading = ref(false)
+const creating = ref(false)
 
 // ==================== 面板状态 ====================
 
@@ -1188,9 +1309,94 @@ function handleTutorial() {
   tutorialVisible.value = true
 }
 
-/** 跳转添加脚本页 */
-function goAddAccount() {
-  router.push({ name: 'AddAccount' })
+// ==================== 添加脚本 popup 逻辑 ====================
+
+// 打开 popup 时重置状态
+watch(addScriptVisible, (val) => {
+  if (val) {
+    addScriptStep.value = 0
+    addScriptView.value = 'step0'
+    selectedAccountId.value = null
+    selectedRoleId.value = null
+    selectedAccount.value = null
+    selectedRole.value = null
+    scriptRoles.value = []
+    rolesLoading.value = false
+    creating.value = false
+  }
+})
+
+/** 选择账号：点击 cell → 选中 + 300ms 后自动进入 step1 */
+function onSelectAccount(acc) {
+  selectedAccountId.value = acc.id
+  selectedAccount.value = acc
+  setTimeout(() => {
+    addScriptStep.value = 1
+    addScriptView.value = 'step1'
+    // 加载角色列表
+    loadRoles()
+  }, 300)
+}
+
+/** 加载角色列表（mock） */
+function loadRoles() {
+  rolesLoading.value = true
+  scriptRoles.value = []
+  setTimeout(() => {
+    // 从 mockRoles 取 2~3 条
+    const source = mockRoles.value
+    const count = Math.min(source.length, 2 + (selectedAccount.value?.id % 2 || 0))
+    scriptRoles.value = source.slice(0, count).map((r) => ({
+      id: r.id,
+      roleName: r.name,
+      serverName: r.server,
+    }))
+    rolesLoading.value = false
+  }, 600)
+}
+
+/** 选择角色：点击 cell → 选中 + 300ms 后自动进入 step2 */
+function onSelectRole(r) {
+  selectedRoleId.value = r.id
+  selectedRole.value = r
+  setTimeout(() => {
+    addScriptStep.value = 2
+    addScriptView.value = 'step2'
+  }, 300)
+}
+
+/** 确认创建脚本 */
+function onCreateScript() {
+  creating.value = true
+  setTimeout(() => {
+    creating.value = false
+    showSuccessToast('创建成功')
+    addScriptVisible.value = false
+    // 刷新脚本列表
+    getScriptsAPI().then((data) => {
+      scripts.value = data
+    })
+  }, 800)
+}
+
+/** addAccount 视图返回 */
+function onAddScriptBack() {
+  addScriptView.value = 'step0'
+}
+
+/** 添加账号成功回调 */
+function onAddAccountSuccess(data) {
+  showSuccessToast('添加成功')
+  addScriptView.value = 'step0'
+  // 把新账号 mock 加入 mockAccounts
+  mockAccounts.value.push({
+    id: Date.now(),
+    name: data.accountName,
+    accountName: data.accountName,
+    channel: data.channel || '官服',
+    genType: '手动',
+    updateTime: new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'),
+  })
 }
 </script>
 
@@ -1837,5 +2043,69 @@ function goAddAccount() {
   color: #666;
   line-height: 1.8;
   white-space: pre-line;
+}
+
+/* ==================== 添加脚本 popup 样式 ==================== */
+
+.add-script-steps {
+  padding: 12px 16px;
+  background: #fff;
+}
+
+.add-new-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  color: #1989fa;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.add-new-row:active {
+  opacity: 0.7;
+}
+
+.confirm-card {
+  background: #fff;
+  border-radius: 12px;
+  margin: 16px;
+  padding: 20px 16px;
+}
+
+.confirm-section {
+  margin-bottom: 16px;
+}
+
+.confirm-section:last-child {
+  margin-bottom: 0;
+}
+
+.confirm-label {
+  font-size: 13px;
+  color: #999;
+  margin-bottom: 4px;
+}
+
+.confirm-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.confirm-sub {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+}
+
+.form-submit {
+  padding: 20px 16px;
+}
+
+.form-submit .van-button {
+  height: 48px;
+  font-size: 16px;
 }
 </style>
