@@ -48,3 +48,16 @@ export const cardAPI = {
   redeem: (code) => request('/cards/redeem', { method: 'POST', body: JSON.stringify({ code }) }),
   records: () => request('/cards/records'),
 }
+
+export const sunAPI = {
+  transfer: (targetUsername, amount) => request('/sun/transfer', { method: 'POST', body: JSON.stringify({ target_username: targetUsername, amount }) }),
+}
+
+export const billingAPI = {
+  records: (page = 1, size = 20) => request(`/billing/records?page=${page}&size=${size}`),
+}
+
+export const contentAPI = {
+  announcements: () => request('/announcements'),
+  changelogs: () => request('/changelogs'),
+}

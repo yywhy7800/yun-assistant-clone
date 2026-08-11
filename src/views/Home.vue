@@ -1,7 +1,7 @@
 <template>
   <!-- 首页 - 脚本列表 -->
   <div class="home-page">
-    <!-- 顶部公告栏 -->
+    <!-- 顶部公告栏（后端公告，无公告时显示默认欢迎语） -->
     <div class="scroll-notice-wrapper">
       <van-notice-bar
         left-icon="volume-o"
@@ -11,7 +11,7 @@
         :delay="1"
         :speed="50"
       >
-        欢迎使用小太阳，愉快游戏，幸福人生！☀️
+        {{ noticeText }}
       </van-notice-bar>
     </div>
 
@@ -27,7 +27,7 @@
         <div class="info">
           <div class="user-line">
             <span class="username" @click="openPersonalCenter">{{ username }}</span>
-            <span class="vip-badge vip-0">👤 普通用户</span>
+            <span class="vip-badge" :class="`vip-${vipLevel}`">{{ vipLevel > 0 ? `👑 VIP${vipLevel}` : '👤 普通用户' }}</span>
             <span class="tutorial-btn" @click="handleTutorial">📖 教程</span>
           </div>
         </div>
@@ -772,7 +772,7 @@ import {
 } from '../api/mock.js'
 import { getLogsMock } from '../api/log-mock.js'
 import AddAccountForm from '../components/AddAccountForm.vue'
-import { authAPI, cardAPI, scriptAPI } from '../api/client'
+import { authAPI, billingAPI, cardAPI, contentAPI, scriptAPI, sunAPI } from '../api/client'
 
 const router = useRouter()
 
@@ -811,6 +811,19 @@ window.saveScriptConfig = async (configJson) => {
 
 // 当前用户名（从 sessionStorage 获取）
 const username = ref(sessionStorage.getItem('yun_username') || 'Unworthy014')
+
+// 公告栏文案（后端拉取，无公告时默认欢迎语）
+const noticeText = ref('欢迎使用小太阳，愉快游戏，幸福人生！☀️')
+const announcements = ref([])
+
+// VIP 等级（从登录返回的用户信息读取）
+const vipLevel = ref(0)
+try {
+  const stored = JSON.parse(localStorage.getItem('yun_user') || '{}')
+  vipLevel.value = stored.vip_level || 0
+} catch (e) {
+  vipLevel.value = 0
+}
 
 // 小太阳余额（优先取登录时后端返回的 sun_balance，缺省 35）
 function getStoredSunBalance() {
@@ -899,15 +912,29 @@ const sunRechargeVisible = ref(false)
 const sunTransferVisible = ref(false)
 const sunTransferForm = reactive({ targetId: '', amount: 1 })
 
-// 太阳流水
+// 太阳流水（真实后端数据）
 const sunTransactionsVisible = ref(false)
-const sunTransactions = ref([
-  { type: '脚本续期', time: '2026-08-10 15:30', amount: -5 },
-  { type: '太阳充值', time: '2026-08-09 10:00', amount: 50 },
-  { type: '阳光传递（收入）', time: '2026-08-08 12:00', amount: 20 },
-  { type: '兑换脚本时长', time: '2026-08-07 09:00', amount: -10 },
-  { type: '推广奖励', time: '2026-08-06 14:00', amount: 5 },
-])
+const sunTransactions = ref([])
+const sunTxLoading = ref(false)
+
+/** 打开太阳流水 → 拉取真实流水 */
+async function openSunTransactions() {
+  personalCenterVisible.value = false
+  sunTransactionsVisible.value = true
+  sunTxLoading.value = true
+  try {
+    const res = await billingAPI.records(1, 50)
+    sunTransactions.value = res.data.records.map((t) => ({
+      type: t.tx_type_name,
+      time: t.created_at,
+      amount: t.amount,
+    }))
+  } catch (e) {
+    showFailToast(e.message || '流水加载失败')
+  } finally {
+    sunTxLoading.value = false
+  }
+}
 
 // 推广中心
 const promotionCenterVisible = ref(false)
@@ -923,13 +950,9 @@ const promotionRewards = ref([
   { desc: '用户C 注册奖励', time: '2026-08-05' },
 ])
 
-// 更新记录
+// 更新记录（真实后端数据）
 const updateLogVisible = ref(false)
-const updateLogs = ref([
-  { version: 'v2.0.130', time: '2026-08-01 10:00', content: '1. 优化脚本运行稳定性\n2. 修复已知问题\n3. 新增兑换码功能' },
-  { version: 'v2.0.120', time: '2026-07-15 14:00', content: '1. 新增推广中心\n2. UI 界面优化\n3. 性能提升' },
-  { version: 'v2.0.110', time: '2026-07-01 09:00', content: '1. 新增太阳充值功能\n2. 新增阳光传递\n3. 修复若干 bug' },
-])
+const updateLogs = ref([])
 
 // 联系客服
 const contactServiceVisible = ref(false)
@@ -990,6 +1013,16 @@ onMounted(async () => {
     })
   } catch (e) {
     showFailToast('加载失败')
+  }
+  // 拉取公告（失败静默，保留默认欢迎语）
+  try {
+    const res = await contentAPI.announcements()
+    announcements.value = res.data.announcements || []
+    if (announcements.value.length > 0) {
+      noticeText.value = announcements.value[0].content || announcements.value[0].title
+    }
+  } catch (e) {
+    // 公告加载失败使用默认文案
   }
 })
 
@@ -1346,27 +1379,31 @@ function openSunTransfer() {
   sunTransferVisible.value = true
 }
 
-/** 阳光传递确认 */
-function handleSunTransferConfirm() {
+/** 阳光传递确认（真实后端转账） */
+async function handleSunTransferConfirm() {
   if (!sunTransferForm.targetId.trim()) {
-    showToast('请输入对方ID')
+    showToast('请输入对方账号')
     return
   }
-  const fee = Math.ceil(sunTransferForm.amount * 0.1)
-  const total = sunTransferForm.amount + fee
-  if (total > sunBalance.value) {
-    showFailToast('太阳余额不足')
+  const amount = Number(sunTransferForm.amount)
+  if (!amount || amount < 1) {
+    showToast('请输入有效数量')
     return
   }
-  sunBalance.value -= total
-  showSuccessToast('传递成功')
-  sunTransferVisible.value = false
-}
-
-/** 打开太阳流水 */
-function openSunTransactions() {
-  personalCenterVisible.value = false
-  sunTransactionsVisible.value = true
+  try {
+    const res = await sunAPI.transfer(sunTransferForm.targetId.trim(), amount)
+    // 刷新余额（后端返回扣减后余额）
+    if (res.data && res.data.sun_balance !== undefined) {
+      sunBalance.value = res.data.sun_balance
+      const stored = JSON.parse(localStorage.getItem('yun_user') || '{}')
+      stored.sun_balance = res.data.sun_balance
+      localStorage.setItem('yun_user', JSON.stringify(stored))
+    }
+    showSuccessToast(res.message || '传递成功')
+    sunTransferVisible.value = false
+  } catch (e) {
+    showFailToast(e.message || '传递失败')
+  }
 }
 
 /** 打开推广中心 */
@@ -1385,10 +1422,20 @@ function handleCopyPromoLink() {
   })
 }
 
-/** 打开更新记录 */
-function openUpdateLog() {
+/** 打开更新记录 → 拉取后端版本记录 */
+async function openUpdateLog() {
   personalCenterVisible.value = false
   updateLogVisible.value = true
+  try {
+    const res = await contentAPI.changelogs()
+    updateLogs.value = res.data.changelogs.map((c) => ({
+      version: c.version,
+      time: c.created_at,
+      content: c.content,
+    }))
+  } catch (e) {
+    showFailToast(e.message || '更新记录加载失败')
+  }
 }
 
 /** 打开联系客服 */
