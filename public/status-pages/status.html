@@ -623,7 +623,7 @@
   }
 
   function loadStatus() {
-    if (!scriptInfo || !scriptInfo.nodeIp) {
+    if (!scriptInfo || !scriptInfo.scriptId) {
       showError('节点信息不可用');
       return;
     }
@@ -631,19 +631,35 @@
     document.getElementById('loadingMask').classList.remove('hidden');
     document.getElementById('main').style.display = 'none';
     document.getElementById('error').style.display = 'none';
-    var url = 'http://' + scriptInfo.nodeIp + ':' + scriptInfo.nodePort + '/game/state/' + scriptInfo.scriptId;
-    fetch(url)
-      .then(function(r) { return r.json(); })
-      .then(function(result) {
-        if (result.code === 200) {
-          landData = result.land;
-          render(result);
-        } else {
-          showError(result.msg || '获取状态失败');
-        }
+    // 相对路径同源请求（dev 走 Vite /game 代理，生产同源部署），复用登录令牌
+    var token = localStorage.getItem('yun_token') || '';
+    var headers = { 'Content-Type': 'application/json' };
+    if (token) headers.Authorization = 'Bearer ' + token;
+    fetch('/game/state/' + scriptInfo.scriptId, { headers: headers })
+      .then(function(resp) {
+        return resp.json().then(function(body) {
+          if (resp.status === 401) {
+            showError('登录已过期，请重新登录后查看状态');
+            return;
+          }
+          // 真实后端结构：{ success, message, data: { code, land, items, statistics, scriptId } }
+          if (!body || body.success !== true || !body.data) {
+            showError((body && (body.message || body.detail)) || '获取状态失败');
+            return;
+          }
+          var data = body.data;
+          if (data.code !== 200) {
+            showError('获取状态失败');
+            return;
+          }
+          landData = data.land;
+          render(data);
+        }).catch(function() {
+          showError('服务器返回异常');
+        });
       })
       .catch(function() {
-        showError('无法连接节点服务器');
+        showError('无法连接服务器，请稍后重试');
       });
   }
 
