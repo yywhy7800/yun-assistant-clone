@@ -1090,7 +1090,7 @@ async function handleToggleScript(script) {
       showFailToast(res.message)
     }
   } catch (e) {
-    showFailToast('操作失败')
+    showFailToast(e.message || '操作失败')
   }
 }
 

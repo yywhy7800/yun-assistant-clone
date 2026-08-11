@@ -28,9 +28,3 @@ export const deleteScriptAPI = (id) =>
 
 export const renewScriptAPI = (id, days = 30) =>
   scriptAPI.renew(id, days).then((r) => ({ success: true, message: r.message, data: r.data }))
-
-export const addScriptAPI = (data) =>
-  scriptAPI.bind({ channel: data.channel, account: data.account, password: data.password }).then((r) => ({
-    success: true,
-    data: r.data.script,
-  }))
