@@ -156,7 +156,7 @@
           </div>
           <div class="step">
             <span class="step-num">4</span>
-            <span>脚本将自动开始运行，可随时停止</span>
+            <span>绑定和配置已完成，脚本引擎暂未开放</span>
           </div>
           <div class="step">
             <span class="step-num">5</span>
@@ -536,9 +536,9 @@
     >
       <div style="padding: 12px 16px;">
         <div style="margin-bottom: 8px;">
-          我的ID：<strong>{{ username }}</strong>
+          我的账号：<strong>{{ username }}</strong>
         </div>
-        <van-field v-model="sunTransferForm.targetId" label="对方ID" type="digit" placeholder="请输入对方的ID" />
+        <van-field v-model="sunTransferForm.targetUsername" label="对方账号" placeholder="请输入对方账号（3-32 位字母、数字或下划线）" />
         <van-field label="赠送数量">
           <template #input>
             <van-stepper v-model="sunTransferForm.amount" :min="1" :max="10000" integer />
@@ -694,8 +694,8 @@ window.saveScriptConfig = async (configJson) => {
 
 // ==================== 基础状态 ====================
 
-// 当前用户名（从 sessionStorage 获取）
-const username = ref(sessionStorage.getItem('yun_username') || 'Unworthy014')
+// 当前用户名（从 sessionStorage 获取；缺失/损坏时不硬编码占位名，等 me 同步后展示真实用户名）
+const username = ref(sessionStorage.getItem('yun_username') || '')
 
 // 公告栏文案（后端拉取，无公告时默认欢迎语）
 const noticeText = ref('欢迎使用小太阳，愉快游戏，幸福人生！☀️')
@@ -710,13 +710,13 @@ try {
   vipLevel.value = 0
 }
 
-// 小太阳余额（优先取登录时后端返回的 sun_balance，缺省 35）
+// 小太阳余额（优先取登录时后端返回的 sun_balance；缓存缺失/损坏时兜底 0，与后端新用户余额一致，不伪造数字）
 function getStoredSunBalance() {
   try {
     const user = JSON.parse(localStorage.getItem('yun_user') || '{}')
-    return typeof user.sun_balance === 'number' ? user.sun_balance : 35
+    return typeof user.sun_balance === 'number' ? user.sun_balance : 0
   } catch {
-    return 35
+    return 0
   }
 }
 const sunBalance = ref(getStoredSunBalance())
@@ -787,7 +787,7 @@ const sunRechargeVisible = ref(false)
 
 // 阳光传递
 const sunTransferVisible = ref(false)
-const sunTransferForm = reactive({ targetId: '', amount: 1 })
+const sunTransferForm = reactive({ targetUsername: '', amount: 1 })
 
 /** 手续费唯一出口：10% 向上取整，与后端 calc_fee 口径一致 */
 const calcFee = (n) => Math.ceil(n * 0.1)
@@ -884,19 +884,28 @@ onMounted(async () => {
   } catch (e) {
     // 公告加载失败使用默认文案
   }
-  // 同步最新余额/等级/推广码（后端可能被其他途径变更，如管理端/其他设备）
+  // 同步最新用户名/余额/等级/推广码（后端可能被其他途径变更，如管理端/其他设备）
   try {
     const res = await authAPI.me()
     const user = res.data.user
+    // 用户名以 me 返回为准（注册后 sessionStorage 无 yun_username、缓存损坏等场景）
+    if (user.username) {
+      username.value = user.username
+      sessionStorage.setItem('yun_username', user.username)
+    }
     sunBalance.value = user.sun_balance
     vipLevel.value = user.vip_level
     myInviteCode.value = res.data.invite_code || ''
-    const stored = JSON.parse(localStorage.getItem('yun_user') || '{}')
-    stored.sun_balance = user.sun_balance
-    stored.vip_level = user.vip_level
-    localStorage.setItem('yun_user', JSON.stringify(stored))
+    // 缓存写回单独容错：缓存损坏不应误报同步失败
+    try {
+      const stored = JSON.parse(localStorage.getItem('yun_user') || '{}')
+      stored.sun_balance = user.sun_balance
+      stored.vip_level = user.vip_level
+      localStorage.setItem('yun_user', JSON.stringify(stored))
+    } catch (e) {}
   } catch (e) {
-    // 同步失败静默（未登录等场景）
+    // 同步失败：保留缓存展示但明确提示（非阻塞），不伪造数据（401 时 client.js 已清登录态并跳登录页）
+    showToast('余额/身份同步失败，显示的可能不是最新数据')
   }
 })
 
@@ -1267,15 +1276,20 @@ async function handleSunRechargeRedeem() {
 /** 打开阳光传递 */
 function openSunTransfer() {
   personalCenterVisible.value = false
-  sunTransferForm.targetId = ''
+  sunTransferForm.targetUsername = ''
   sunTransferForm.amount = 1
   sunTransferVisible.value = true
 }
 
-/** 阳光传递确认（真实后端转账） */
+/** 阳光传递确认（真实后端转账，对方为用户名的精确查询，按注册规则校验） */
 async function handleSunTransferConfirm() {
-  if (!sunTransferForm.targetId.trim()) {
+  const target = sunTransferForm.targetUsername.trim()
+  if (!target) {
     showToast('请输入对方账号')
+    return
+  }
+  if (!/^[a-zA-Z0-9_]{3,32}$/.test(target)) {
+    showToast('请输入对方账号（3-32 位字母、数字或下划线）')
     return
   }
   const amount = Number(sunTransferForm.amount)
@@ -1284,7 +1298,7 @@ async function handleSunTransferConfirm() {
     return
   }
   try {
-    const res = await sunAPI.transfer(sunTransferForm.targetId.trim(), amount)
+    const res = await sunAPI.transfer(target, amount)
     // 刷新余额（后端返回扣减后余额）
     if (res.data && res.data.sun_balance !== undefined) {
       sunBalance.value = res.data.sun_balance
