@@ -19,14 +19,14 @@
     <div class="header">
       <div class="user-info">
         <!-- 头像 -->
-        <div class="avatar" @click="handleAvatarClick">
+        <div class="avatar" @click="openPersonalCenter">
           <van-icon name="friends-o" size="28" color="#fff" />
         </div>
 
         <!-- 用户名和标签 -->
         <div class="info">
           <div class="user-line">
-            <span class="username">{{ username }}</span>
+            <span class="username" @click="openPersonalCenter">{{ username }}</span>
             <span class="vip-badge vip-0">👤 普通用户</span>
             <span class="tutorial-btn" @click="handleTutorial">📖 教程</span>
           </div>
@@ -287,11 +287,328 @@
         />
       </div>
     </van-popup>
+
+    <!-- ==================== 个人中心弹出层 ==================== -->
+    <van-popup
+      v-model:show="personalCenterVisible"
+      position="bottom"
+      :style="{ width: '100%', height: '100%' }"
+      :close-on-popstate="false"
+      :round="false"
+    >
+      <div class="panel-container">
+        <van-nav-bar title="个人中心" left-arrow @click-left="personalCenterVisible = false" />
+        <div class="panel-body">
+          <van-cell-group>
+            <van-cell icon="gift-card-o" is-link @click="openExchangeCode">
+              <template #title>
+                游戏兑换码 <span style="color: #e53935; font-size: 12px;">（游戏中的兑换码）</span>
+              </template>
+            </van-cell>
+            <van-cell icon="user-circle-o" title="游戏账号管理" is-link @click="openAccountManage" />
+            <van-cell icon="gold-coin-o" title="太阳充值" is-link @click="openSunRecharge" />
+            <van-cell icon="send-gift-o" title="阳光传递" is-link @click="openSunTransfer" />
+            <van-cell icon="records" title="太阳流水" is-link @click="openSunTransactions" />
+            <van-cell icon="share-o" title="推广中心" is-link @click="openPromotionCenter" />
+            <van-cell icon="notes-o" title="更新记录" is-link @click="openUpdateLog" />
+            <van-cell icon="service-o" title="联系客服" is-link @click="openContactService" />
+            <van-cell icon="lock" title="修改密码" is-link @click="openChangePassword" />
+            <van-cell icon="warning-o" title="退出登录" @click="handleLogout" />
+          </van-cell-group>
+        </div>
+      </div>
+    </van-popup>
+
+    <!-- ==================== 游戏兑换码 popup ==================== -->
+    <van-popup
+      v-model:show="exchangeCodeVisible"
+      position="bottom"
+      :style="{ width: '100%', height: '100%' }"
+      :close-on-popstate="false"
+      :round="false"
+    >
+      <div class="panel-container">
+        <van-nav-bar title="游戏兑换码" left-arrow @click-left="exchangeCodeVisible = false" />
+        <div class="panel-body" style="padding: 16px;">
+          <van-field v-model="exchangeCode" label="兑换码" placeholder="请输入兑换码" clearable />
+          <div style="padding: 16px;">
+            <van-button type="primary" size="large" round block @click="handleExchangeCode">兑换</van-button>
+          </div>
+          <div class="panel-tip">兑换卡密获取太阳</div>
+        </div>
+      </div>
+    </van-popup>
+
+    <!-- ==================== 游戏账号管理 popup（多视图切换） ==================== -->
+    <van-popup
+      v-model:show="accountManageVisible"
+      position="bottom"
+      :style="{ width: '100%', height: '100%' }"
+      :close-on-popstate="false"
+      :round="false"
+    >
+      <div class="panel-container">
+        <!-- accounts 视图 -->
+        <template v-if="accountManageView === 'accounts'">
+          <van-nav-bar title="游戏账号管理" left-arrow @click-left="accountManageVisible = false" />
+          <div class="panel-body">
+            <div
+              v-for="acct in mockAccounts"
+              :key="acct.id"
+              class="account-card"
+              @click="openRoles(acct)"
+            >
+              <div class="account-card-top">
+                <div class="account-card-header">
+                  <span class="account-name">{{ acct.name }}</span>
+                  <div class="account-tags">
+                    <van-tag type="primary" size="small">{{ acct.channel }}</van-tag>
+                    <van-tag plain size="small">{{ acct.genType }}</van-tag>
+                  </div>
+                </div>
+                <div class="account-card-info">
+                  <div class="account-detail">账号名称: {{ acct.accountName }}</div>
+                  <div class="account-time">更新时间: {{ acct.updateTime }}</div>
+                </div>
+              </div>
+              <div class="account-card-actions">
+                <van-button type="danger" plain size="small" @click.stop="handleDeleteAccount(acct)">删除</van-button>
+                <van-icon name="arrow" color="#999" />
+              </div>
+            </div>
+            <van-empty v-if="mockAccounts.length === 0" description="暂无游戏账号" />
+            <div style="padding: 16px;">
+              <van-button type="primary" size="large" round block @click="accountManageView = 'addAccount'">+ 添加/同步账号</van-button>
+            </div>
+          </div>
+        </template>
+
+        <!-- addAccount 视图 -->
+        <template v-else-if="accountManageView === 'addAccount'">
+          <van-nav-bar title="添加/同步账号" left-arrow @click-left="accountManageView = 'accounts'" />
+          <div class="panel-body" style="padding: 16px;">
+            <van-field v-model="addAccountForm.name" label="账号名称" placeholder="请输入账号名称" />
+            <van-field v-model="addAccountForm.channel" label="渠道选择" placeholder="请输入渠道" />
+            <van-field v-model="addAccountForm.genType" label="生成方式" placeholder="请输入生成方式" />
+            <div style="padding: 16px;">
+              <van-button type="primary" size="large" round block @click="handleAddAccount">提交</van-button>
+            </div>
+          </div>
+        </template>
+
+        <!-- roles 视图 -->
+        <template v-else-if="accountManageView === 'roles'">
+          <van-nav-bar title="角色管理" left-arrow @click-left="accountManageView = 'accounts'" />
+          <div class="panel-body">
+            <van-cell
+              v-for="role in mockRoles"
+              :key="role.id"
+              :title="role.name"
+              :label="`角色ID: ${role.id} | 服务器: ${role.server}`"
+            />
+            <van-empty v-if="mockRoles.length === 0" description="暂无角色" />
+          </div>
+        </template>
+      </div>
+    </van-popup>
+
+    <!-- ==================== 太阳充值 popup ==================== -->
+    <van-popup
+      v-model:show="sunRechargeVisible"
+      position="bottom"
+      :style="{ width: '100%', height: '100%' }"
+      :close-on-popstate="false"
+      :round="false"
+    >
+      <div class="panel-container">
+        <van-nav-bar title="太阳充值" left-arrow @click-left="sunRechargeVisible = false" />
+        <div class="panel-body" style="padding: 16px;">
+          <div class="sun-balance-display">
+            <span>当前太阳：</span>
+            <span class="sun-balance-value">☀️ {{ sunBalance }}</span>
+          </div>
+          <div class="recharge-plans">
+            <div
+              v-for="plan in sunRechargePlans"
+              :key="plan.id"
+              class="recharge-plan-card"
+              @click="handleRecharge(plan)"
+            >
+              <div class="plan-amount">☀️ {{ plan.amount }}</div>
+              <div class="plan-price">¥{{ plan.price }}</div>
+            </div>
+          </div>
+          <div class="panel-tip">充值后太阳将立即到账，可用于兑换脚本运行时长</div>
+        </div>
+      </div>
+    </van-popup>
+
+    <!-- ==================== 太阳流水 popup ==================== -->
+    <van-popup
+      v-model:show="sunTransactionsVisible"
+      position="bottom"
+      :style="{ width: '100%', height: '100%' }"
+      :close-on-popstate="false"
+      :round="false"
+    >
+      <div class="panel-container">
+        <van-nav-bar title="太阳流水" left-arrow @click-left="sunTransactionsVisible = false" />
+        <div class="panel-body">
+          <van-cell
+            v-for="(item, idx) in sunTransactions"
+            :key="idx"
+            :title="item.type"
+            :label="item.time"
+          >
+            <template #value>
+              <span :style="{ color: item.amount > 0 ? '#00c853' : '#ee0a24' }">
+                {{ item.amount > 0 ? '+' : '' }}{{ item.amount }}
+              </span>
+            </template>
+          </van-cell>
+          <van-empty v-if="sunTransactions.length === 0" description="暂无流水记录" />
+        </div>
+      </div>
+    </van-popup>
+
+    <!-- ==================== 推广中心 popup ==================== -->
+    <van-popup
+      v-model:show="promotionCenterVisible"
+      position="bottom"
+      :style="{ width: '100%', height: '100%' }"
+      :close-on-popstate="false"
+      :round="false"
+    >
+      <div class="panel-container">
+        <van-nav-bar title="推广中心" left-arrow @click-left="promotionCenterVisible = false" />
+        <div class="panel-body" style="padding: 16px;">
+          <div class="promo-link-box">
+            <div class="promo-label">推广链接</div>
+            <div class="promo-link">https://yun.example.com/ref/{{ username }}</div>
+            <van-button size="small" type="primary" @click="handleCopyPromoLink">复制</van-button>
+          </div>
+          <div class="promo-stats">
+            <div class="promo-stat-item">
+              <div class="promo-stat-num">{{ promotionStats.userCount }}</div>
+              <div class="promo-stat-label">推广人数</div>
+            </div>
+            <div class="promo-stat-item">
+              <div class="promo-stat-num">{{ promotionStats.totalReward }}</div>
+              <div class="promo-stat-label">累计奖励</div>
+            </div>
+          </div>
+          <div class="promo-section">
+            <h4>奖励规则</h4>
+            <p>每成功邀请1位新用户，奖励 5 ☀️；被邀请用户充值，推广人可获得充值金额 10% 的太阳奖励。</p>
+          </div>
+          <div class="promo-section">
+            <h4>推广用户列表</h4>
+            <van-cell
+              v-for="user in promotionUsers"
+              :key="user.id"
+              :title="user.name"
+              :label="'注册时间: ' + user.registerTime"
+            />
+            <van-empty v-if="promotionUsers.length === 0" description="暂无推广用户" />
+          </div>
+          <div class="promo-section">
+            <h4>奖励记录</h4>
+            <van-cell
+              v-for="(reward, idx) in promotionRewards"
+              :key="idx"
+              :title="reward.desc"
+              :label="reward.time"
+              value="+5 ☀️"
+            />
+            <van-empty v-if="promotionRewards.length === 0" description="暂无奖励记录" />
+          </div>
+        </div>
+      </div>
+    </van-popup>
+
+    <!-- ==================== 更新记录 popup ==================== -->
+    <van-popup
+      v-model:show="updateLogVisible"
+      position="bottom"
+      :style="{ width: '100%', height: '100%' }"
+      :close-on-popstate="false"
+      :round="false"
+    >
+      <div class="panel-container">
+        <van-nav-bar title="更新记录" left-arrow @click-left="updateLogVisible = false" />
+        <div class="panel-body" style="padding: 16px;">
+          <div v-for="(log, idx) in updateLogs" :key="idx" class="update-log-item">
+            <div class="update-log-version">{{ log.version }}</div>
+            <div class="update-log-time">更新时间: {{ log.time }}</div>
+            <div class="update-log-content">{{ log.content }}</div>
+          </div>
+          <van-empty v-if="updateLogs.length === 0" description="暂无更新记录" />
+        </div>
+      </div>
+    </van-popup>
+
+    <!-- ==================== 阳光传递 dialog ==================== -->
+    <van-dialog
+      v-model:show="sunTransferVisible"
+      title="☀️ 阳光传递"
+      show-cancel-button
+      confirm-button-text="确认传递"
+      @confirm="handleSunTransferConfirm"
+    >
+      <div style="padding: 12px 16px;">
+        <div style="margin-bottom: 8px;">
+          我的ID：<strong>{{ username }}</strong>
+        </div>
+        <van-field v-model="sunTransferForm.targetId" label="对方ID" type="digit" placeholder="请输入对方的ID" />
+        <van-field label="赠送数量">
+          <template #input>
+            <van-stepper v-model="sunTransferForm.amount" :min="1" :max="99999" integer />
+          </template>
+        </van-field>
+        <div v-if="sunTransferForm.amount > 0" class="transfer-fee-detail">
+          <div>赠送数量：{{ sunTransferForm.amount }} 太阳</div>
+          <div>手续费（10%）：{{ Math.ceil(sunTransferForm.amount * 0.1) }} 太阳</div>
+          <div style="font-weight: bold; color: #e53935;">
+            实际扣除：{{ sunTransferForm.amount + Math.ceil(sunTransferForm.amount * 0.1) }} 太阳
+          </div>
+        </div>
+      </div>
+    </van-dialog>
+
+    <!-- ==================== 联系客服 dialog ==================== -->
+    <van-dialog
+      v-model:show="contactServiceVisible"
+      title="联系客服"
+      :show-confirm-button="false"
+      closeable
+      :style="{ width: '90%' }"
+    >
+      <div style="padding: 8px 0;">
+        <van-cell title="客服名称" value="官方客服" />
+        <van-cell title="QQ号" value="1234567890" />
+        <div style="padding: 12px 16px; text-align: center;">
+          <van-button size="small" type="primary" @click="handleSendMessage">发消息</van-button>
+        </div>
+      </div>
+    </van-dialog>
+
+    <!-- ==================== 修改密码 dialog ==================== -->
+    <van-dialog
+      v-model:show="changePasswordVisible"
+      title="修改密码"
+      show-cancel-button
+      @confirm="handleChangePasswordConfirm"
+    >
+      <div style="padding: 12px 16px;">
+        <van-field v-model="passwordForm.oldPassword" type="password" label="旧密码" placeholder="请输入旧密码" />
+        <van-field v-model="passwordForm.newPassword" type="password" label="新密码" placeholder="请输入新密码" />
+      </div>
+    </van-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast, showDialog, showSuccessToast, showFailToast, showLoadingToast, closeToast } from 'vant'
 import {
@@ -334,6 +651,104 @@ const actionSheetActions = [
   { name: '续期', color: '#667eea' },
   { name: '删除', color: '#ee0a24' },
 ]
+
+// ==================== 个人中心相关状态 ====================
+
+// 个人中心主面板
+const personalCenterVisible = ref(false)
+
+// 游戏兑换码
+const exchangeCodeVisible = ref(false)
+const exchangeCode = ref('')
+
+// 游戏账号管理
+const accountManageVisible = ref(false)
+const accountManageView = ref('accounts')
+const addAccountForm = reactive({ name: '', channel: '', genType: '' })
+const mockAccounts = ref([
+  {
+    id: 1,
+    name: '我的游戏账号',
+    accountName: 'mygame001',
+    channel: '官服',
+    genType: '手动',
+    updateTime: '2026-06-15 14:30',
+  },
+  {
+    id: 2,
+    name: '小号账号',
+    accountName: 'mygame002',
+    channel: 'B服',
+    genType: '自动',
+    updateTime: '2026-07-20 09:12',
+  },
+  {
+    id: 3,
+    name: '测试账号',
+    accountName: 'testgame003',
+    channel: '官服',
+    genType: '手动',
+    updateTime: '2026-08-01 18:45',
+  },
+])
+const mockRoles = ref([
+  { id: 'role_001', name: '主角战士', server: '官方一区' },
+  { id: 'role_002', name: '法师小明', server: '官方二区' },
+  { id: 'role_003', name: '辅助小红', server: 'B服一区' },
+])
+
+// 太阳充值
+const sunRechargeVisible = ref(false)
+const sunRechargePlans = ref([
+  { id: 1, amount: 10, price: 1 },
+  { id: 2, amount: 50, price: 5 },
+  { id: 3, amount: 100, price: 10 },
+  { id: 4, amount: 500, price: 45 },
+  { id: 5, amount: 1000, price: 80 },
+])
+
+// 阳光传递
+const sunTransferVisible = ref(false)
+const sunTransferForm = reactive({ targetId: '', amount: 1 })
+
+// 太阳流水
+const sunTransactionsVisible = ref(false)
+const sunTransactions = ref([
+  { type: '脚本续期', time: '2026-08-10 15:30', amount: -5 },
+  { type: '太阳充值', time: '2026-08-09 10:00', amount: 50 },
+  { type: '阳光传递（收入）', time: '2026-08-08 12:00', amount: 20 },
+  { type: '兑换脚本时长', time: '2026-08-07 09:00', amount: -10 },
+  { type: '推广奖励', time: '2026-08-06 14:00', amount: 5 },
+])
+
+// 推广中心
+const promotionCenterVisible = ref(false)
+const promotionStats = reactive({ userCount: 3, totalReward: 15 })
+const promotionUsers = ref([
+  { id: 1, name: '用户A', registerTime: '2026-07-01' },
+  { id: 2, name: '用户B', registerTime: '2026-07-15' },
+  { id: 3, name: '用户C', registerTime: '2026-08-05' },
+])
+const promotionRewards = ref([
+  { desc: '用户A 注册奖励', time: '2026-07-01' },
+  { desc: '用户B 注册奖励', time: '2026-07-15' },
+  { desc: '用户C 注册奖励', time: '2026-08-05' },
+])
+
+// 更新记录
+const updateLogVisible = ref(false)
+const updateLogs = ref([
+  { version: 'v2.0.130', time: '2026-08-01 10:00', content: '1. 优化脚本运行稳定性\n2. 修复已知问题\n3. 新增兑换码功能' },
+  { version: 'v2.0.120', time: '2026-07-15 14:00', content: '1. 新增推广中心\n2. UI 界面优化\n3. 性能提升' },
+  { version: 'v2.0.110', time: '2026-07-01 09:00', content: '1. 新增太阳充值功能\n2. 新增阳光传递\n3. 修复若干 bug' },
+])
+
+// 联系客服
+const contactServiceVisible = ref(false)
+
+// 修改密码
+const changePasswordVisible = ref(false)
+const passwordForm = reactive({ oldPassword: '', newPassword: '' })
 
 // 教程弹窗
 const tutorialVisible = ref(false)
@@ -573,13 +988,190 @@ async function onActionSelect(action) {
 
 // ==================== 其他交互 ====================
 
-/** 头像点击 - 会员说明 */
-function handleAvatarClick() {
+// ==================== 个人中心相关函数 ====================
+
+/** 打开个人中心 */
+function openPersonalCenter() {
+  personalCenterVisible.value = true
+}
+
+/** 打开游戏兑换码 */
+function openExchangeCode() {
+  personalCenterVisible.value = false
+  exchangeCodeVisible.value = true
+}
+
+/** 兑换码提交 */
+function handleExchangeCode() {
+  if (!exchangeCode.value.trim()) {
+    showToast('请输入兑换码')
+    return
+  }
+  showSuccessToast('兑换成功！获得 10 ☀️')
+  sunBalance.value += 10
+  exchangeCode.value = ''
+  exchangeCodeVisible.value = false
+}
+
+/** 打开游戏账号管理 */
+function openAccountManage() {
+  personalCenterVisible.value = false
+  accountManageView.value = 'accounts'
+  accountManageVisible.value = true
+}
+
+/** 进入角色管理 */
+function openRoles(acct) {
+  accountManageView.value = 'roles'
+}
+
+/** 删除账号 */
+function handleDeleteAccount(acct) {
   showDialog({
-    title: '会员说明',
-    message: '您当前是「普通用户」\n升级VIP可享受更多权益：\n• 更长的脚本运行时长\n• 优先客服支持\n• 专属折扣',
-    confirmButtonColor: '#667eea',
+    title: '确认删除',
+    message: `确定删除账号「${acct.name}」吗？`,
+    showCancelButton: true,
+    confirmButtonColor: '#ee0a24',
+  }).then(() => {
+    mockAccounts.value = mockAccounts.value.filter((a) => a.id !== acct.id)
+    showSuccessToast('删除成功')
+  }).catch(() => {})
+}
+
+/** 添加账号 */
+function handleAddAccount() {
+  if (!addAccountForm.name.trim()) {
+    showToast('请填写账号名称')
+    return
+  }
+  showSuccessToast('添加成功')
+  mockAccounts.value.push({
+    id: Date.now(),
+    name: addAccountForm.name,
+    accountName: addAccountForm.name,
+    channel: addAccountForm.channel || '官服',
+    genType: addAccountForm.genType || '手动',
+    updateTime: new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'),
   })
+  addAccountForm.name = ''
+  addAccountForm.channel = ''
+  addAccountForm.genType = ''
+  accountManageView.value = 'accounts'
+}
+
+/** 打开太阳充值 */
+function openSunRecharge() {
+  personalCenterVisible.value = false
+  sunRechargeVisible.value = true
+}
+
+/** 充值选择 */
+function handleRecharge(plan) {
+  showDialog({
+    title: '确认充值',
+    message: `确认充值 ${plan.amount} ☀️，需支付 ¥${plan.price}？`,
+    showCancelButton: true,
+    confirmButtonColor: '#667eea',
+  }).then(() => {
+    sunBalance.value += plan.amount
+    showSuccessToast(`充值成功！获得 ${plan.amount} ☀️`)
+    sunRechargeVisible.value = false
+  }).catch(() => {})
+}
+
+/** 打开阳光传递 */
+function openSunTransfer() {
+  personalCenterVisible.value = false
+  sunTransferForm.targetId = ''
+  sunTransferForm.amount = 1
+  sunTransferVisible.value = true
+}
+
+/** 阳光传递确认 */
+function handleSunTransferConfirm() {
+  if (!sunTransferForm.targetId.trim()) {
+    showToast('请输入对方ID')
+    return
+  }
+  const fee = Math.ceil(sunTransferForm.amount * 0.1)
+  const total = sunTransferForm.amount + fee
+  if (total > sunBalance.value) {
+    showFailToast('太阳余额不足')
+    return
+  }
+  sunBalance.value -= total
+  showSuccessToast('传递成功')
+  sunTransferVisible.value = false
+}
+
+/** 打开太阳流水 */
+function openSunTransactions() {
+  personalCenterVisible.value = false
+  sunTransactionsVisible.value = true
+}
+
+/** 打开推广中心 */
+function openPromotionCenter() {
+  personalCenterVisible.value = false
+  promotionCenterVisible.value = true
+}
+
+/** 复制推广链接 */
+function handleCopyPromoLink() {
+  const link = `https://yun.example.com/ref/${username.value}`
+  navigator.clipboard?.writeText(link).then(() => {
+    showSuccessToast('链接已复制')
+  }).catch(() => {
+    showToast('复制失败，请手动复制')
+  })
+}
+
+/** 打开更新记录 */
+function openUpdateLog() {
+  personalCenterVisible.value = false
+  updateLogVisible.value = true
+}
+
+/** 打开联系客服 */
+function openContactService() {
+  personalCenterVisible.value = false
+  contactServiceVisible.value = true
+}
+
+/** 发送消息 */
+function handleSendMessage() {
+  showToast('消息功能开发中，请通过QQ联系客服')
+}
+
+/** 打开修改密码 */
+function openChangePassword() {
+  personalCenterVisible.value = false
+  passwordForm.oldPassword = ''
+  passwordForm.newPassword = ''
+  changePasswordVisible.value = true
+}
+
+/** 修改密码确认 */
+function handleChangePasswordConfirm() {
+  if (!passwordForm.oldPassword.trim() || !passwordForm.newPassword.trim()) {
+    showToast('请填写完整信息')
+    return
+  }
+  showSuccessToast('修改密码成功')
+  changePasswordVisible.value = false
+}
+
+/** 退出登录 */
+function handleLogout() {
+  showDialog({
+    title: '提示',
+    message: '确定要退出登录吗？',
+    showCancelButton: true,
+    confirmButtonColor: '#ee0a24',
+  }).then(() => {
+    sessionStorage.clear()
+    router.push('/login')
+  }).catch(() => {})
 }
 
 /** 小太阳余额点击 */
@@ -1010,5 +1602,240 @@ function goAddAccount() {
   color: #333;
   line-height: 1.6;
   word-break: break-all;
+}
+
+/* ==================== 个人中心 & 子面板通用样式 ==================== */
+
+/* 面板提示文字 */
+.panel-tip {
+  padding: 12px 16px;
+  background: #fff7e6;
+  border-radius: 8px;
+  color: #ed6a0c;
+  font-size: 13px;
+  text-align: center;
+  margin-top: 8px;
+}
+
+/* ==================== 游戏账号管理卡片 ==================== */
+
+.account-card {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  margin: 8px 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 0;
+}
+
+.account-card:active {
+  background: #f7f8fa;
+}
+
+.account-card-top {
+  flex: 1;
+  min-width: 0;
+}
+
+.account-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.account-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.account-tags {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.account-card-info {
+  font-size: 12px;
+  color: #999;
+  line-height: 1.6;
+}
+
+.account-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+/* ==================== 太阳充值 ==================== */
+
+.sun-balance-display {
+  text-align: center;
+  padding: 24px 0;
+  font-size: 16px;
+  color: #666;
+}
+
+.sun-balance-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #f5a623;
+  margin-left: 8px;
+}
+
+.recharge-plans {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.recharge-plan-card {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 16px 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.recharge-plan-card:active {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+.plan-amount {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f5a623;
+}
+
+.plan-price {
+  font-size: 14px;
+  color: #e53935;
+  margin-top: 4px;
+}
+
+/* ==================== 阳光传递费用明细 ==================== */
+
+.transfer-fee-detail {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f7f8fa;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.8;
+}
+
+/* ==================== 推广中心 ==================== */
+
+.promo-link-box {
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.promo-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.promo-link {
+  font-size: 12px;
+  color: #1989fa;
+  padding: 8px 12px;
+  background: #f7f8fa;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  word-break: break-all;
+}
+
+.promo-stats {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.promo-stat-item {
+  flex: 1;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+  color: #fff;
+}
+
+.promo-stat-num {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.promo-stat-label {
+  font-size: 12px;
+  opacity: 0.85;
+  margin-top: 4px;
+}
+
+.promo-section {
+  margin-bottom: 16px;
+}
+
+.promo-section h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 8px;
+  padding-left: 8px;
+  border-left: 3px solid #667eea;
+}
+
+.promo-section p {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.6;
+  margin: 0;
+  padding: 12px;
+  background: #fff;
+  border-radius: 8px;
+}
+
+/* ==================== 更新记录 ==================== */
+
+.update-log-item {
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.update-log-version {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.update-log-time {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 10px;
+}
+
+.update-log-content {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.8;
+  white-space: pre-line;
 }
 </style>
