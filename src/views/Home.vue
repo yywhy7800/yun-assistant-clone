@@ -483,11 +483,14 @@
       <div class="panel-container">
         <van-nav-bar title="推广中心" left-arrow @click-left="promotionCenterVisible = false" />
         <div class="panel-body" style="padding: 16px;">
+          <van-tag v-if="promoEnabled" type="success">推广进行中</van-tag>
+          <van-tag v-else type="danger">推广暂停</van-tag>
           <div class="promo-link-box">
-            <div class="promo-label">推广链接</div>
-            <div class="promo-link">https://yun.example.com/ref/{{ username }}</div>
-            <van-button size="small" type="primary" @click="handleCopyPromoLink">复制</van-button>
+            <div class="promo-label">推广码</div>
+            <div class="promo-link">{{ myInviteCode || '未生成' }}</div>
+            <van-button size="small" type="primary" :disabled="!myInviteCode" @click="handleCopyInviteCode">复制</van-button>
           </div>
+          <div class="promo-tip">注册时填写您的推广码，好友每累计兑换 30 ☀️，您获得 1 ☀️ 奖励（可多次获得）</div>
           <div class="promo-stats">
             <div class="promo-stat-item">
               <div class="promo-stat-num">{{ promotionStats.userCount }}</div>
@@ -499,27 +502,13 @@
             </div>
           </div>
           <div class="promo-section">
-            <h4>奖励规则</h4>
-            <p>每成功邀请1位新用户，奖励 5 ☀️；被邀请用户充值，推广人可获得充值金额 10% 的太阳奖励。</p>
-          </div>
-          <div class="promo-section">
-            <h4>推广用户列表</h4>
-            <van-cell
-              v-for="user in promotionUsers"
-              :key="user.id"
-              :title="user.name"
-              :label="'注册时间: ' + user.registerTime"
-            />
-            <van-empty v-if="promotionUsers.length === 0" description="暂无推广用户" />
-          </div>
-          <div class="promo-section">
             <h4>奖励记录</h4>
             <van-cell
               v-for="(reward, idx) in promotionRewards"
               :key="idx"
               :title="reward.desc"
               :label="reward.time"
-              value="+5 ☀️"
+              :value="'+' + reward.amount + ' ☀️'"
             />
             <van-empty v-if="promotionRewards.length === 0" description="暂无奖励记录" />
           </div>
@@ -772,7 +761,7 @@ import {
 } from '../api/mock.js'
 import { getLogsMock } from '../api/log-mock.js'
 import AddAccountForm from '../components/AddAccountForm.vue'
-import { authAPI, billingAPI, cardAPI, contentAPI, scriptAPI, sunAPI } from '../api/client'
+import { authAPI, billingAPI, cardAPI, contentAPI, promoAPI, scriptAPI, sunAPI } from '../api/client'
 
 const router = useRouter()
 
@@ -936,19 +925,12 @@ async function openSunTransactions() {
   }
 }
 
-// 推广中心
+// 推广中心（真实后端数据）
 const promotionCenterVisible = ref(false)
-const promotionStats = reactive({ userCount: 3, totalReward: 15 })
-const promotionUsers = ref([
-  { id: 1, name: '用户A', registerTime: '2026-07-01' },
-  { id: 2, name: '用户B', registerTime: '2026-07-15' },
-  { id: 3, name: '用户C', registerTime: '2026-08-05' },
-])
-const promotionRewards = ref([
-  { desc: '用户A 注册奖励', time: '2026-07-01' },
-  { desc: '用户B 注册奖励', time: '2026-07-15' },
-  { desc: '用户C 注册奖励', time: '2026-08-05' },
-])
+const promotionStats = reactive({ userCount: 0, totalReward: 0 })
+const promotionRewards = ref([])
+const myInviteCode = ref('')
+const promoEnabled = ref(false)
 
 // 更新记录（真实后端数据）
 const updateLogVisible = ref(false)
@@ -1023,6 +1005,20 @@ onMounted(async () => {
     }
   } catch (e) {
     // 公告加载失败使用默认文案
+  }
+  // 同步最新余额/等级/推广码（后端可能被其他途径变更，如管理端/其他设备）
+  try {
+    const res = await authAPI.me()
+    const user = res.data.user
+    sunBalance.value = user.sun_balance
+    vipLevel.value = user.vip_level
+    myInviteCode.value = res.data.invite_code || ''
+    const stored = JSON.parse(localStorage.getItem('yun_user') || '{}')
+    stored.sun_balance = user.sun_balance
+    stored.vip_level = user.vip_level
+    localStorage.setItem('yun_user', JSON.stringify(stored))
+  } catch (e) {
+    // 同步失败静默（未登录等场景）
   }
 })
 
@@ -1406,17 +1402,30 @@ async function handleSunTransferConfirm() {
   }
 }
 
-/** 打开推广中心 */
-function openPromotionCenter() {
+/** 打开推广中心 → 拉取真实推广数据 */
+async function openPromotionCenter() {
   personalCenterVisible.value = false
   promotionCenterVisible.value = true
+  try {
+    const [cfg, mine, rwds] = await Promise.all([promoAPI.config(), promoAPI.my(), promoAPI.rewards()])
+    promoEnabled.value = cfg.data.enabled
+    myInviteCode.value = mine.data.invite_code
+    promotionStats.userCount = mine.data.invited_count
+    promotionStats.totalReward = mine.data.total_reward
+    promotionRewards.value = rwds.data.rewards.map((r) => ({
+      desc: `好友 ${r.friend} 累计兑换达标（第${r.tier}档）`,
+      time: r.created_at,
+      amount: r.amount,
+    }))
+  } catch (e) {
+    showFailToast(e.message || '推广数据加载失败')
+  }
 }
 
-/** 复制推广链接 */
-function handleCopyPromoLink() {
-  const link = `https://yun.example.com/ref/${username.value}`
-  navigator.clipboard?.writeText(link).then(() => {
-    showSuccessToast('链接已复制')
+/** 复制推广码 */
+function handleCopyInviteCode() {
+  navigator.clipboard?.writeText(myInviteCode.value).then(() => {
+    showSuccessToast('推广码已复制')
   }).catch(() => {
     showToast('复制失败，请手动复制')
   })

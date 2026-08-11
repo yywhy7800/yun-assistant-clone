@@ -29,8 +29,9 @@ async function request(path, options = {}) {
 }
 
 export const authAPI = {
-  register: (username, password, phone) => request('/auth/register', { method: 'POST', body: JSON.stringify({ username, password, phone: phone || null }) }),
+  register: (username, password, phone, inviteCode) => request('/auth/register', { method: 'POST', body: JSON.stringify({ username, password, phone: phone || null, invite_code: inviteCode || null }) }),
   login: (username, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+  me: () => request('/auth/me'),
   changePassword: (oldPassword, newPassword) => request('/auth/change-password', { method: 'POST', body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }) }),
 }
 
@@ -60,4 +61,10 @@ export const billingAPI = {
 export const contentAPI = {
   announcements: () => request('/announcements'),
   changelogs: () => request('/changelogs'),
+}
+
+export const promoAPI = {
+  config: () => request('/promo/config'),
+  my: () => request('/promo/my'),
+  rewards: () => request('/promo/rewards'),
 }

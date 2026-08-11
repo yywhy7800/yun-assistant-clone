@@ -10,8 +10,8 @@ export const loginAPI = (username, password) =>
     return { success: true, message: '登录成功' }
   })
 
-export const registerAPI = (username, password, phone) =>
-  authAPI.register(username, password, phone).then((r) => {
+export const registerAPI = (username, password, phone, inviteCode) =>
+  authAPI.register(username, password, phone, inviteCode).then((r) => {
     localStorage.setItem('yun_token', r.data.token)
     localStorage.setItem('yun_user', JSON.stringify(r.data.user))
     return { success: true, message: '注册成功' }

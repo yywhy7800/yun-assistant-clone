@@ -58,6 +58,13 @@
           />
         </template>
       </van-field>
+      <van-field
+        v-model="inviteCode"
+        label="推广码"
+        placeholder="选填，输入好友推广码"
+        left-icon="friends-o"
+        maxlength="16"
+      />
 
       <div class="register-btn">
         <van-button
@@ -92,6 +99,7 @@ const phone = ref('')
 const username = ref('')
 const password = ref('')
 const confirmPwd = ref('')
+const inviteCode = ref('')
 const pwdVisible = ref(false)
 const cpwdVisible = ref(false)
 const loading = ref(false)
@@ -130,7 +138,7 @@ async function handleRegister() {
 
   loading.value = true
   try {
-    const res = await registerAPI(username.value, password.value, phone.value)
+    const res = await registerAPI(username.value, password.value, phone.value, inviteCode.value.trim() || null)
     if (res.success) {
       // 注册即登录（registerAPI 已写入 yun_token），标记登录态并跳首页
       sessionStorage.setItem('yun_is_logged_in', 'true')
