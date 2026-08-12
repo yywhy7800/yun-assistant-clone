@@ -1,5 +1,6 @@
 /**
- * Mock API 模块 → 已切换为真实后端（保留文件名为兼容性，实现全部转发）
+ * API 适配层（兼容历史导入）
+ * 实际请求由 client.js 统一处理：USE_MOCK=true 时走 mockServer，否则走真实后端
  */
 import { authAPI, scriptAPI } from './client'
 

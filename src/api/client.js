@@ -1,13 +1,22 @@
 /**
  * 真实后端 API 客户端（替代 mock）
  */
+import { handleMockRequest } from './mockServer'
+
 const BASE = '/api'
+const USE_MOCK = true // 纯前端演示：true 走本地 mock；接真实后端时改为 false
 
 function getToken() {
   return localStorage.getItem('yun_token') || ''
 }
 
 async function request(path, options = {}) {
+  // 纯前端演示：走本地 mock，返回结构与真实 API 一致
+  if (USE_MOCK) {
+    const body = handleMockRequest(path, options)
+    if (body.success === false) throw new Error(body.message || '请求失败')
+    return body
+  }
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) }
   const token = getToken()
   if (token) headers.Authorization = `Bearer ${token}`
@@ -46,6 +55,8 @@ export const authAPI = {
 export const scriptAPI = {
   list: () => request('/scripts'),
   bind: (data) => request('/scripts', { method: 'POST', body: JSON.stringify(data) }),
+  // 确认创建：复制已有脚本为新脚本（body: { copyOf: scriptId }）
+  create: (data) => request('/scripts', { method: 'POST', body: JSON.stringify(data) }),
   toggle: (id) => request(`/scripts/${id}/toggle`, { method: 'POST' }),
   remove: (id) => request(`/scripts/${id}`, { method: 'DELETE' }),
   renew: (id, days) => request(`/scripts/${id}/renew`, { method: 'POST', body: JSON.stringify({ days }) }),
