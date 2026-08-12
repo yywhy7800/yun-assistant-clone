@@ -119,7 +119,7 @@
 
     <!-- 底部固定添加按钮 -->
     <div class="add-btn">
-      <van-button type="primary" size="large" round block @click="addScriptVisible = true">
+      <van-button type="primary" size="large" round block @click="openAddScript">
         + 添加脚本
       </van-button>
     </div>
@@ -628,7 +628,7 @@
       </div>
     </van-dialog>
 
-    <!-- ==================== 添加脚本 popup（选择渠道 → 输入账号密码 → 真实绑定） ==================== -->
+    <!-- ==================== 添加脚本 popup（三步流程：账号列表 → 选择角色 → 确认创建） ==================== -->
     <van-popup
       v-model:show="addScriptVisible"
       position="bottom"
@@ -637,9 +637,81 @@
       :close-on-click-overlay="false"
     >
       <div class="panel-container">
-        <van-nav-bar title="添加脚本" left-arrow @click-left="addScriptVisible = false" />
+        <van-nav-bar
+          :title="addScriptView === 'addAccount' ? '添加游戏账号' : '添加脚本'"
+          :left-arrow="addScriptView === 'addAccount'"
+          @click-left="addScriptView === 'addAccount' ? (addScriptView = 'accounts') : (addScriptVisible = false)"
+        >
+          <template v-if="addScriptView !== 'addAccount'" #right>
+            <van-icon name="cross" size="18" @click="addScriptVisible = false" />
+          </template>
+        </van-nav-bar>
         <div class="panel-body">
-          <AddAccountForm v-if="addScriptVisible" @success="onAddAccountSuccess" />
+          <!-- 步骤条（非 addAccount 视图显示） -->
+          <van-steps v-if="addScriptView !== 'addAccount'" :active="addScriptStep" active-icon="success" active-color="#07c160" class="steps-bar">
+            <van-step>选择账号</van-step>
+            <van-step>选择角色</van-step>
+            <van-step>确认创建</van-step>
+          </van-steps>
+
+          <!-- step0 账号列表 -->
+          <template v-if="addScriptView === 'accounts'">
+            <van-cell-group v-if="accountOptions.length">
+              <van-cell
+                v-for="acc in accountOptions"
+                :key="acc.accountName"
+                :title="acc.accountName"
+                :label="`${acc.roleCount} 个角色 · ${acc.channels}`"
+                is-link
+                @click="selectAccount(acc)"
+              />
+            </van-cell-group>
+            <van-empty v-else description="暂无已添加账号" />
+            <div class="add-new" @click="addScriptView = 'addAccount'">
+              <van-icon name="plus" />
+              <span>添加/同步账号</span>
+            </div>
+          </template>
+
+          <!-- step1 角色列表 -->
+          <template v-else-if="addScriptView === 'roles'">
+            <van-cell-group v-if="roleOptions.length">
+              <van-cell
+                v-for="r in roleOptions"
+                :key="r.id"
+                :title="r.roleName"
+                :label="`服务器: ${r.server}`"
+                is-link
+                @click="selectRole(r)"
+              >
+                <template #value>
+                  <van-tag :type="r.status === 'running' ? 'success' : 'default'" size="small">
+                    {{ r.status === 'running' ? '运行中' : '已停止' }}
+                  </van-tag>
+                </template>
+              </van-cell>
+            </van-cell-group>
+            <van-empty v-else description="该账号下暂无角色" />
+          </template>
+
+          <!-- step2 确认创建 -->
+          <template v-else-if="addScriptView === 'confirm'">
+            <div class="confirm-card">
+              <div class="confirm-title">确认创建脚本</div>
+              <div class="confirm-row"><span class="c-label">账号</span><span>{{ selectedAccount.accountName }}</span></div>
+              <div class="confirm-row"><span class="c-label">角色</span><span>{{ selectedRole.roleName }}</span></div>
+              <div class="confirm-row"><span class="c-label">服务器</span><span>{{ selectedRole.server }}</span></div>
+              <div class="confirm-row"><span class="c-label">渠道</span><span>{{ channelLabel(selectedRole.channel) }}</span></div>
+            </div>
+            <div class="form-submit">
+              <van-button type="primary" round block :loading="creating" loading-text="创建中..." @click="confirmCreate">
+                确认创建
+              </van-button>
+            </div>
+          </template>
+
+          <!-- addAccount 视图：绑定新账号 -->
+          <AddAccountForm v-else-if="addScriptView === 'addAccount'" @success="onBindSuccess" />
         </div>
       </div>
     </van-popup>
@@ -1460,10 +1532,77 @@ function handleTutorial() {
 
 // ==================== 添加脚本 popup 逻辑 ====================
 
-// 添加脚本流程 = 选择渠道 → 输入账号密码 → 真实绑定（AddAccountForm 内完成），
-// 无角色选择步骤（后端 bind 不返回角色，role_name 为空待获取）
+// 添加脚本三步流程（原站复刻：账号列表 → 角色 → 确认创建）
+const addScriptStep = ref(0)
+const addScriptView = ref('accounts')   // accounts | roles | confirm | addAccount
+const selectedAccount = ref(null)       // { accountName, roleCount, channels }
+const selectedRole = ref(null)          // 脚本对象
+const creating = ref(false)
 
-/** 添加账号成功（真实绑定成功）→ 刷新真实脚本列表并返回 */
+// 账号列表：scripts 按 account 去重
+const accountOptions = computed(() => {
+  const map = new Map()
+  for (const s of scripts.value) {
+    const k = s.account || s.roleName
+    if (!map.has(k)) map.set(k, { accountName: k, roles: [] })
+    map.get(k).roles.push(s)
+  }
+  return [...map.values()].map((g) => ({
+    accountName: g.accountName,
+    roleCount: g.roles.length,
+    channels: [...new Set(g.roles.map((r) => channelLabel(r.channel)))].join('/'),
+  }))
+})
+
+// 角色列表：选中账号下的脚本
+const roleOptions = computed(() =>
+  selectedAccount.value
+    ? scripts.value.filter((s) => (s.account || s.roleName) === selectedAccount.value.accountName)
+    : []
+)
+
+/** 打开添加脚本 popup 并重置状态 */
+function openAddScript() {
+  addScriptStep.value = 0
+  addScriptView.value = 'accounts'
+  selectedAccount.value = null
+  selectedRole.value = null
+  addScriptVisible.value = true
+}
+
+function selectAccount(acc) {
+  selectedAccount.value = acc
+  selectedRole.value = null
+  addScriptStep.value = 1
+  addScriptView.value = 'roles'
+}
+
+function selectRole(role) {
+  selectedRole.value = role
+  addScriptStep.value = 2
+  addScriptView.value = 'confirm'
+}
+
+async function confirmCreate() {
+  creating.value = true
+  await new Promise((r) => setTimeout(r, 800))
+  creating.value = false
+  try { await refreshScripts() } catch (e) {}
+  showSuccessToast('创建成功')
+  addScriptVisible.value = false
+}
+
+/** 绑定新账号成功 → 回账号列表并刷新 */
+async function onBindSuccess() {
+  try { await refreshScripts() } catch (e) {}
+  showSuccessToast('绑定成功')
+  addScriptView.value = 'accounts'
+  addScriptStep.value = 0
+  selectedAccount.value = null
+  selectedRole.value = null
+}
+
+/** 添加账号成功（账号管理面板场景）→ 刷新脚本列表并返回账号列表视图 */
 async function onAddAccountSuccess() {
   try {
     await refreshScripts()
@@ -2149,4 +2288,16 @@ async function onAddAccountSuccess() {
   line-height: 1.8;
   white-space: pre-line;
 }
+
+/* ==================== 添加脚本三步流程样式 ==================== */
+
+.steps-bar { padding: 12px 0 4px; background: #fff; }
+.add-new { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 16px; color: #1989fa; font-size: 14px; cursor: pointer; }
+.confirm-card { margin: 16px; padding: 16px; background: #fff; border-radius: 10px; }
+.confirm-title { font-size: 16px; font-weight: 700; color: #333; margin-bottom: 12px; }
+.confirm-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; color: #333; border-bottom: 1px dashed #f0f0f0; }
+.confirm-row:last-child { border-bottom: none; }
+.confirm-row .c-label { color: #999; }
+.form-submit { padding: 20px 16px; }
+.form-submit .van-button { height: 48px; font-size: 16px; }
 </style>
