@@ -373,3 +373,221 @@ git status
 git add -A
 git commit -m "chore: 一路狂飙脚本内容完成" -m "#AI"
 ```
+
+---
+
+# 二轮：查询剩余次数与动态统计
+
+## Task 7: mock 运行模拟与 runtime-stats 接口
+
+**Files:**
+- Modify: `src/api/mockServer.js`
+- Test: `src/api/__tests__/mockServer.test.js`
+
+**Interfaces:**
+- Produces: `GET /scripts/:id/runtime-stats` 返回 `{ running, ad_left, claimed_q3, claimed_q4, claimed_q5, rp_diamond, rp_grabbed }`；`mockToggle` 在 running 时记录 `mock_runtime[id]=start_time`
+
+- [ ] **Step 1: 写失败测试**
+
+在 `src/api/__tests__/mockServer.test.js` 的 mock 脚本 describe 内追加：
+```js
+it('runtime-stats 未运行返回 0 统计', () => {
+  const res = handleMockRequest('/scripts/1/runtime-stats')
+  expect(res.success).toBe(true)
+  expect(res.data.running).toBe(false)
+  expect(res.data.ad_left).toBe(3)
+})
+```
+
+- [ ] **Step 2: 运行测试确认失败**
+
+Run: `npm test`
+Expected: FAIL（`/scripts/1/runtime-stats` 未实现，返回 fail）
+
+- [ ] **Step 3: 实现运行模拟**
+
+在 `src/api/mockServer.js`：
+1. 顶部加常量：`const LS_RUNTIME = 'mock_runtime' // { [scriptId]: start_time }`
+2. 修改 `mockToggle`，running 时记录 start_time、stopped 时清除：
+```js
+function mockToggle(id) {
+  const list = getScripts()
+  const s = list.find((x) => x.id === id)
+  if (!s) return fail('脚本不存在')
+  s.status = s.status === 'running' ? 'stopped' : 'running'
+  write(LS_SCRIPTS, list)
+  const rt = read(LS_RUNTIME, {})
+  if (s.status === 'running') rt[id] = Date.now()
+  else delete rt[id]
+  write(LS_RUNTIME, rt)
+  return ok({ newStatus: s.status }, '操作成功')
+}
+```
+3. 新增统计接口（按运行时长模拟，查询驱动无定时器）：
+```js
+function mockRuntimeStats(id) {
+  const rt = read(LS_RUNTIME, {})
+  const start = rt[id]
+  if (!start) {
+    return ok({ running: false, ad_left: 3, claimed_q3: 0, claimed_q4: 0, claimed_q5: 0, rp_diamond: 0, rp_grabbed: 0 }, 'ok')
+  }
+  const elapsed = Math.floor((Date.now() - start) / 1000)
+  return ok({
+    running: true,
+    ad_left: Math.max(0, 3 - Math.floor(elapsed / 120)),
+    claimed_q3: Math.floor(elapsed / 8),
+    claimed_q4: Math.floor(elapsed / 20),
+    claimed_q5: Math.floor(elapsed / 40),
+    rp_diamond: Math.floor(elapsed / 15) * 5,
+    rp_grabbed: Math.floor(elapsed / 15),
+  }, 'ok')
+}
+```
+4. `handleMockRequest` 的 scripts 分发中加：
+```js
+if (m && scriptId && action === 'runtime-stats' && method === 'GET') return mockRuntimeStats(scriptId)
+```
+
+- [ ] **Step 4: 运行测试确认通过**
+
+Run: `npm test`
+Expected: PASS（mockServer 9 用例）
+
+- [ ] **Step 5: 提交**
+
+```bash
+git add src/api/mockServer.js src/api/__tests__/mockServer.test.js
+git commit -m "feat: mock 运行模拟与 runtime-stats 统计接口" -m "#AI"
+```
+
+## Task 8: runtimeStats API 与 iframe 桥接
+
+**Files:**
+- Modify: `src/api/client.js`
+- Modify: `src/views/Home.vue`
+
+**Interfaces:**
+- Consumes: `GET /scripts/:id/runtime-stats`（Task 7）
+- Produces: `scriptAPI.runtimeStats(id)`；`window.getRuntimeStats()`（Home 暴露给配置 iframe）
+
+- [ ] **Step 1: client.js 加 runtimeStats**
+
+在 `src/api/client.js` 的 `scriptAPI` 中 `logs` 之前加：
+```js
+runtimeStats: (id) => request(`/scripts/${id}/runtime-stats`),
+```
+
+- [ ] **Step 2: Home.vue 暴露桥接**
+
+在 `src/views/Home.vue` 的 `window.saveScriptConfig` 定义之后加：
+```js
+// 配置 iframe 获取运行统计（mock 模拟运行累积，实时刷新）
+window.getRuntimeStats = async () => {
+  const id = panelScript.value?.id
+  if (!id) return { running: false, ad_left: 3, claimed_q3: 0, claimed_q4: 0, claimed_q5: 0, rp_diamond: 0, rp_grabbed: 0 }
+  try {
+    const res = await scriptAPI.runtimeStats(id)
+    return res.data
+  } catch (e) {
+    console.warn('[Home] getRuntimeStats 失败:', e.message)
+    return { running: false, ad_left: 3, claimed_q3: 0, claimed_q4: 0, claimed_q5: 0, rp_diamond: 0, rp_grabbed: 0 }
+  }
+}
+```
+
+- [ ] **Step 3: 验证 + 提交**
+
+Run: `npm test` 全过；`npm run build` 成功。
+```bash
+git add src/api/client.js src/views/Home.vue
+git commit -m "feat: runtimeStats API 与配置面板 iframe 桥接" -m "#AI"
+```
+
+## Task 9: display 动态更新 + schema + 面板轮询
+
+**Files:**
+- Modify: `public/config-pages/config.js`（display 支持动态更新）
+- Modify: `public/config-pages/game2/config.schema.js`（加 adLeft）
+- Modify: `public/config-pages/game2/config.html`（轮询）
+
+**Interfaces:**
+- Consumes: `window.getRuntimeStats()`（Task 8）、`window.setDisplayValue(fieldId, text)`（本任务）
+- Produces: 三倍芯片组显示「剩余3倍次数」自动查询；蓝紫金/钻石统计定时刷新
+
+- [ ] **Step 1: config.js display 支持动态更新**
+
+修改 `public/config-pages/config.js` 的 display 分支，value span 加 `data-display-value="${fieldId}"`：
+```js
+  } else if (propSchema.type === 'display') {
+    // 只读展示项（统计/固定值），支持运行时动态更新
+    const displayValue = propSchema.value != null ? propSchema.value : '';
+    field.innerHTML = `
+      <div class="stat-display" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#f7f8fa;border-radius:8px;">
+        <span style="font-size:14px;color:#333;">${label}</span>
+        <span data-display-value="${fieldId}" style="font-size:14px;color:#969799;">${displayValue}</span>
+      </div>
+    `;
+  }
+```
+在文件末尾（`window.updateConfigFromParent` 附近）加全局更新函数：
+```js
+// 父窗口/脚本运行时更新 display 值（fieldId 形如 triple_tripleStats）
+window.setDisplayValue = function (fieldId, text) {
+  const el = document.querySelector(`[data-display-value="${fieldId}"]`)
+  if (el) el.textContent = text
+}
+```
+
+- [ ] **Step 2: schema 加剩余次数**
+
+在 `public/config-pages/game2/config.schema.js` 的 `triple` 组中、`tripleStats` 之前加：
+```js
+"adLeft": {"type": "display", "description": "剩余3倍次数", "value": "查询中…"},
+```
+
+- [ ] **Step 3: config.html 轮询**
+
+在 `public/config-pages/game2/config.html` 的加载链中，`config.js` 的 `<script>` 标签添加 `onload`，在其后启动统计轮询：
+```html
+      const script = document.createElement('script');
+      script.src = `../config.js?v=${version}`;
+      script.onload = function() {
+        // 统计轮询：每 3 秒从父窗口拉取运行统计，更新 display
+        try {
+          if (window.parent && window.parent.getRuntimeStats) {
+            window.setInterval(function () {
+              window.parent.getRuntimeStats().then(function (stats) {
+                if (!stats) return;
+                if (window.setDisplayValue) {
+                  window.setDisplayValue('triple_adLeft', stats.ad_left !== undefined ? stats.ad_left + ' 次' : '查询中…');
+                  window.setDisplayValue('triple_tripleStats', '蓝 ' + (stats.claimed_q3 || 0) + ' · 紫 ' + (stats.claimed_q4 || 0) + ' · 金 ' + (stats.claimed_q5 || 0));
+                  window.setDisplayValue('redpocket_rpDiamond', stats.rp_diamond !== undefined ? String(stats.rp_diamond) : '0');
+                }
+              });
+            }, 3000);
+          }
+        } catch (e) {}
+      };
+      document.body.appendChild(script);
+```
+
+- [ ] **Step 4: 验证 + 提交**
+
+Run: `npm test` 全过；`npm run build` 成功。
+```bash
+git add public/config-pages/config.js public/config-pages/game2/config.schema.js public/config-pages/game2/config.html
+git commit -m "feat: 配置面板查询剩余次数与动态统计轮询" -m "#AI"
+```
+
+## Task 10: 端到端验证
+
+- [ ] **Step 1: 单测 + 构建**
+
+Run: `npm test`、`npm run build`，全过。
+
+- [ ] **Step 2: 浏览器走查**
+
+启动 dev，用 Chrome DevTools MCP：
+1. 打开一路狂飙配置面板，三倍芯片组显示「剩余3倍次数」（自动查询）。
+2. 首页把一路狂飙脚本 toggle 为「运行」，回到配置面板，等 10+ 秒观察蓝紫金/钻石统计增长、剩余次数变化。
+3. 小花仙配置面板不受影响。
