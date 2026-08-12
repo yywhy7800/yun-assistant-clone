@@ -785,7 +785,7 @@ function createFieldElement(propSchema, fieldId, label, value, groupProps = {}) 
     field.querySelector('.locked-feature').addEventListener('click', () => showToast(lockedMsg));
   } else if (propSchema.type === 'display') {
     // 只读展示项（统计/固定值），不交互、不参与保存
-    const displayValue = propSchema.value !== undefined ? propSchema.value : '';
+    const displayValue = propSchema.value != null ? propSchema.value : '';
     field.innerHTML = `
       <div class="stat-display" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#f7f8fa;border-radius:8px;">
         <span style="font-size:14px;color:#333;">${label}</span>
