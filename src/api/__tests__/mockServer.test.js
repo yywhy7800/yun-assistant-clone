@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { handleMockRequest } from '../mockServer'
 
 beforeEach(() => {
@@ -77,14 +77,23 @@ describe('mock 脚本', () => {
     expect(res.data.rp_diamond).toBeGreaterThanOrEqual(0)
   })
 
-  it('停止后冻结本次累计（running 变 false，stats 保留）', () => {
-    handleMockRequest('/scripts/2/toggle', { method: 'POST' }) // 启动
-    handleMockRequest('/scripts/2/toggle', { method: 'POST' }) // 停止
-    const res = handleMockRequest('/scripts/2/runtime-stats')
-    expect(res.success).toBe(true)
-    expect(res.data.running).toBe(false)
-    expect(typeof res.data.claimed_q3).toBe('number')
-    expect(res.data.claimed_q3).toBeGreaterThanOrEqual(0)
+  it('停止后冻结本次累计（保留运行期增量）', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-08-12T00:00:00Z'))
+      handleMockRequest('/scripts/2/toggle', { method: 'POST' }) // 启动，start_time = T0
+      vi.setSystemTime(new Date('2026-08-12T00:01:20Z')) // 前进 80 秒
+      handleMockRequest('/scripts/2/toggle', { method: 'POST' }) // 停止，冻结运行期增量
+      const res = handleMockRequest('/scripts/2/runtime-stats')
+      expect(res.data.running).toBe(false)
+      expect(res.data.claimed_q3).toBe(10)   // floor(80/8)=10
+      expect(res.data.claimed_q4).toBe(4)    // floor(80/20)=4
+      expect(res.data.claimed_q5).toBe(2)    // floor(80/40)=2
+      expect(res.data.rp_diamond).toBe(25)   // floor(80/15)*5=25
+      expect(res.data.ad_left).toBe(3)       // floor(80/120)=0，3-0=3
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 
