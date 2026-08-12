@@ -13,7 +13,7 @@
 
 | # | 需求 | 说明 |
 |---|------|------|
-| R1 | 脚本类型 | 名称「一路狂飙」、emoji 🏎️、id 改为 `kb`、渠道 iOS/安卓 |
+| R1 | 脚本类型 | 名称「一路狂飙」、emoji 🏎️、id 用「一路狂飙」、渠道 iOS/安卓 |
 | R2 | 配置项 | 对照 web 面板全部模块：基础设置 / 通关设置 / 三倍芯片 / 抢红包 |
 | R3 | 配置面板 | game2/config.html 由占位改为加载通用渲染器 config.js 渲染真实表单 |
 | R4 | Mock 数据 | 一路狂飙示例脚本，gameType 用 `kb` |
@@ -27,7 +27,7 @@
 
 ```js
 {
-  id: 'kb',
+  id: '一路狂飙',
   name: '一路狂飙',
   emoji: '🏎️',
   color: '#ff4d4f',
@@ -114,13 +114,13 @@ window.CONFIG_SCHEMA = {
 `DEFAULT_SCRIPTS` 中 game2 脚本改为：
 
 ```js
-{ id: 3, gameType: 'kb', roleName: '狂飙车手', server: '国服', status: 'stopped', channel: 'android', account: 'kb001', number: 'NO.2001', expire: '2026-09-01' },
+{ id: 3, gameType: '一路狂飙', roleName: '狂飙车手', server: '国服', status: 'stopped', channel: 'android', account: 'kb001', number: 'NO.2001', expire: '2026-09-01' },
 ```
 
 ### 3.5 测试更新
 
-- `src/config/__tests__/scriptTypes.test.js`：不受 id 影响（断言基于结构），无需改；若断言 `game2` 则改 `kb`。
-- `src/api/__tests__/mockServer.test.js`：`games.has('game2')` → `games.has('kb')`。
+- `src/config/__tests__/scriptTypes.test.js`：不受 id 影响（断言基于结构），无需改。
+- `src/api/__tests__/mockServer.test.js`：`games.has('game2')` → `games.has('一路狂飙')`。
 
 ## 四、文件改动清单
 
