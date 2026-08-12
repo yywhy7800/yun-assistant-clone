@@ -99,6 +99,9 @@ function mockToggle(id) {
 
 function mockDeleteScript(id) {
   write(LS_SCRIPTS, getScripts().filter((s) => s.id !== id))
+  const rt = read(LS_RUNTIME, {})
+  delete rt[id]
+  write(LS_RUNTIME, rt)
   return ok(null, '删除成功')
 }
 

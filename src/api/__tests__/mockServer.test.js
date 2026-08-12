@@ -63,6 +63,19 @@ describe('mock 脚本', () => {
     expect(res.data.running).toBe(false)
     expect(res.data.ad_left).toBe(3)
   })
+
+  it('toggle 运行后 runtime-stats 返回 running 统计结构', () => {
+    handleMockRequest('/scripts/2/toggle', { method: 'POST' }) // 脚本2初始 stopped
+    const res = handleMockRequest('/scripts/2/runtime-stats')
+    expect(res.success).toBe(true)
+    expect(res.data.running).toBe(true)
+    expect(typeof res.data.ad_left).toBe('number')
+    expect(res.data.ad_left).toBeLessThanOrEqual(3)
+    expect(res.data.claimed_q3).toBeGreaterThanOrEqual(0)
+    expect(res.data.claimed_q4).toBeGreaterThanOrEqual(0)
+    expect(res.data.claimed_q5).toBeGreaterThanOrEqual(0)
+    expect(res.data.rp_diamond).toBeGreaterThanOrEqual(0)
+  })
 })
 
 describe('mock 其他接口', () => {
