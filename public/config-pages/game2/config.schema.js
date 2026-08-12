@@ -1,11 +1,11 @@
-// 一路狂飙 配置 Schema（对照 Web 面板功能：基础/通关/三倍芯片/抢红包）
+// 一路狂飙 配置 Schema（对照 Web 面板功能：基础/完美通关/三倍芯片/抢红包世界）
 window.CONFIG_SCHEMA = {
   "properties": {
     "basic": {
       "description": "基础设置",
       "properties": {
         "autoReconnect": {"type": "boolean", "description": "自动重连", "default": true},
-        "reconnectInterval": {"type": "integer", "description": "重连间隔(分)", "default": 10, "min": 1, "dependsOn": "autoReconnect"},
+        "reconnectInterval": {"type": "display", "description": "重连间隔", "value": "5~120 秒（指数退避）"},
         "loginMethod": {
           "type": "select", "description": "登录方式", "default": "auto",
           "options": [
@@ -17,9 +17,10 @@ window.CONFIG_SCHEMA = {
       }
     },
     "clear": {
-      "description": "通关设置",
+      "description": "完美通关",
       "properties": {
-        "autoClear": {"type": "locked", "description": "自动通关", "lockedMessage": "此功能暂不对外开放，如需使用请联系上级"}
+        "perfectClear": {"type": "locked", "description": "完美通关", "lockedMessage": "暂不对外开放，如需要请联系上级"},
+        "unfinishedLevel": {"type": "locked", "description": "未通关关卡", "lockedMessage": "暂不对外开放，如需要请联系上级"}
       }
     },
     "triple": {
@@ -34,14 +35,16 @@ window.CONFIG_SCHEMA = {
             {"value": "q4", "label": "Q4 紫"},
             {"value": "q5", "label": "Q5 金"}
           ]
-        }
+        },
+        "tripleStats": {"type": "display", "description": "本次已领", "value": "蓝 0 · 紫 0 · 金 0"}
       }
     },
     "redpocket": {
-      "description": "抢红包",
+      "description": "抢红包（世界）",
       "properties": {
         "autoRedpocket": {"type": "boolean", "description": "自动抢红包", "default": false},
-        "rpTarget": {"type": "integer", "description": "目标红包数", "default": 10, "min": 1, "max": 10, "dependsOn": "autoRedpocket"}
+        "rpTarget": {"type": "integer", "description": "目标红包数", "default": 10, "min": 1, "max": 10, "dependsOn": "autoRedpocket"},
+        "rpDiamond": {"type": "display", "description": "累计钻石", "value": "0"}
       }
     }
   }
