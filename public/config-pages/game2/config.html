@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>脚本配置</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #f5f5f5;
+    }
+    .placeholder {
+      padding: 80px 24px;
+      text-align: center;
+      color: #999;
+    }
+    .placeholder .icon { font-size: 56px; margin-bottom: 16px; }
+    .placeholder h3 { color: #333; font-size: 17px; margin: 0 0 12px; }
+    .placeholder p { font-size: 14px; line-height: 1.8; margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="placeholder">
+    <div class="icon">🎮</div>
+    <h3>暂无配置项</h3>
+    <p>该游戏的脚本配置项待补充，<br>开发者后续在 config.schema.js 中添加。</p>
+  </div>
+  <script>
+    // 兼容父窗口通信协议：config.html 加载后父窗口会调用 updateConfigFromParent
+    window.updateConfigFromParent = function (configJson) {
+      // 占位页无表单，仅确认协议可用
+    }
+    // 父窗口保存配置时调用
+    window.saveConfig = function () {
+      try {
+        window.parent.showToast && window.parent.showToast('该游戏暂无可保存的配置')
+      } catch (e) {}
+    }
+  </script>
+</body>
+</html>
