@@ -36,6 +36,7 @@ window.CONFIG_SCHEMA = {
             {"value": "q5", "label": "Q5 金"}
           ]
         },
+        "adLeft": {"type": "display", "description": "剩余3倍次数", "value": "查询中…"},
         "tripleStats": {"type": "display", "description": "本次已领", "value": "蓝 0 · 紫 0 · 金 0"}
       }
     },

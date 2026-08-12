@@ -784,12 +784,12 @@ function createFieldElement(propSchema, fieldId, label, value, groupProps = {}) 
     `;
     field.querySelector('.locked-feature').addEventListener('click', () => showToast(lockedMsg));
   } else if (propSchema.type === 'display') {
-    // 只读展示项（统计/固定值），不交互、不参与保存
+    // 只读展示项（统计/固定值），支持运行时动态更新
     const displayValue = propSchema.value != null ? propSchema.value : '';
     field.innerHTML = `
       <div class="stat-display" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#f7f8fa;border-radius:8px;">
         <span style="font-size:14px;color:#333;">${label}</span>
-        <span style="font-size:14px;color:#969799;">${displayValue}</span>
+        <span data-display-value="${fieldId}" style="font-size:14px;color:#969799;">${displayValue}</span>
       </div>
     `;
   } else if (propSchema.type === 'memberList') {
@@ -2454,3 +2454,9 @@ window.addEventListener('load', async function() {
     console.log('[AutoConfig] Page initialized, waiting for parent to update config...');
   }
 });
+
+// 父窗口/脚本运行时更新 display 值（fieldId 形如 triple_tripleStats）
+window.setDisplayValue = function (fieldId, text) {
+  const el = document.querySelector(`[data-display-value="${fieldId}"]`)
+  if (el) el.textContent = text
+}
