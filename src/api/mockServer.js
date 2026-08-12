@@ -7,6 +7,7 @@
 const LS_SCRIPTS = 'mock_scripts'
 const LS_USER = 'mock_user'
 const LS_CONFIGS = 'mock_configs'
+const LS_RUNTIME = 'mock_runtime' // { [scriptId]: start_time }
 
 /** 初始脚本数据：覆盖两个游戏（gs 小花仙 / 一路狂飙） */
 const DEFAULT_SCRIPTS = [
@@ -89,6 +90,10 @@ function mockToggle(id) {
   if (!s) return fail('脚本不存在')
   s.status = s.status === 'running' ? 'stopped' : 'running'
   write(LS_SCRIPTS, list)
+  const rt = read(LS_RUNTIME, {})
+  if (s.status === 'running') rt[id] = Date.now()
+  else delete rt[id]
+  write(LS_RUNTIME, rt)
   return ok({ newStatus: s.status }, '操作成功')
 }
 
@@ -127,6 +132,24 @@ function mockLogs(id) {
     { text: `[${name}] 日常任务执行中…`, time: '10:05:32' },
     { text: `[${name}] 当前无异常`, time: '10:10:11' },
   ] }, 'ok')
+}
+
+function mockRuntimeStats(id) {
+  const rt = read(LS_RUNTIME, {})
+  const start = rt[id]
+  if (!start) {
+    return ok({ running: false, ad_left: 3, claimed_q3: 0, claimed_q4: 0, claimed_q5: 0, rp_diamond: 0, rp_grabbed: 0 }, 'ok')
+  }
+  const elapsed = Math.floor((Date.now() - start) / 1000)
+  return ok({
+    running: true,
+    ad_left: Math.max(0, 3 - Math.floor(elapsed / 120)),
+    claimed_q3: Math.floor(elapsed / 8),
+    claimed_q4: Math.floor(elapsed / 20),
+    claimed_q5: Math.floor(elapsed / 40),
+    rp_diamond: Math.floor(elapsed / 15) * 5,
+    rp_grabbed: Math.floor(elapsed / 15),
+  }, 'ok')
 }
 
 // ==================== 其他接口 ====================
@@ -198,6 +221,7 @@ export function handleMockRequest(path, options = {}) {
   if (m && scriptId && action === 'config' && method === 'GET') return mockGetConfig(scriptId)
   if (m && scriptId && action === 'config' && method === 'PUT') return mockSaveConfig(scriptId, body.config)
   if (m && scriptId && action === 'logs' && method === 'GET') return mockLogs(scriptId)
+  if (m && scriptId && action === 'runtime-stats' && method === 'GET') return mockRuntimeStats(scriptId)
 
   // 其他
   if (p === '/announcements') return mockAnnouncements()

@@ -56,6 +56,13 @@ describe('mock 脚本', () => {
     const res = handleMockRequest('/scripts/1/config')
     expect(res.data.config).toEqual({ a: 1 })
   })
+
+  it('runtime-stats 未运行返回 0 统计', () => {
+    const res = handleMockRequest('/scripts/1/runtime-stats')
+    expect(res.success).toBe(true)
+    expect(res.data.running).toBe(false)
+    expect(res.data.ad_left).toBe(3)
+  })
 })
 
 describe('mock 其他接口', () => {
