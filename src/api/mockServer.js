@@ -146,7 +146,11 @@ function mockLogs(id) {
 
 function computeRuntimeStats(runtime) {
   const zero = { q3: 0, q4: 0, q5: 0, diamond: 0, grabbed: 0, ad_left: 3 }
-  if (!runtime || !runtime.running) return { running: false, stats: runtime ? runtime.stats : zero }
+  if (!runtime || typeof runtime !== 'object' || !runtime.running) {
+    // 旧版 mock_runtime 可能残留数字（{ [id]: start_time }），对非对象做防御
+    const frozen = runtime && typeof runtime === 'object' && runtime.stats ? runtime.stats : zero
+    return { running: false, stats: frozen }
+  }
   const elapsed = Math.floor((Date.now() - runtime.start_time) / 1000)
   const s = runtime.stats
   return {

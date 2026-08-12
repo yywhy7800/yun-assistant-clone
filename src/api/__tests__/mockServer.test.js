@@ -95,6 +95,26 @@ describe('mock 脚本', () => {
       vi.useRealTimers()
     }
   })
+
+  it('重新启动后统计重新累计（归零）', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-08-12T00:00:00Z'))
+      handleMockRequest('/scripts/2/toggle', { method: 'POST' }) // 启动
+      vi.setSystemTime(new Date('2026-08-12T00:01:20Z')) // 前进 80 秒
+      handleMockRequest('/scripts/2/toggle', { method: 'POST' }) // 停止冻结
+      handleMockRequest('/scripts/2/toggle', { method: 'POST' }) // 重新启动（重置归零）
+      const res = handleMockRequest('/scripts/2/runtime-stats')
+      expect(res.data.running).toBe(true)
+      expect(res.data.claimed_q3).toBe(0)
+      expect(res.data.claimed_q4).toBe(0)
+      expect(res.data.claimed_q5).toBe(0)
+      expect(res.data.rp_diamond).toBe(0)
+      expect(res.data.ad_left).toBe(3)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
 describe('mock 其他接口', () => {
