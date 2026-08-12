@@ -766,16 +766,16 @@ window.saveScriptConfig = async (configJson) => {
   }
 }
 
-// 配置 iframe 获取运行统计（mock 模拟运行累积，实时刷新）
+// 配置 iframe 获取运行统计（当前占位 0，真实数据待后端脚本接入后由 runtime-stats 接口返回）
 window.getRuntimeStats = async () => {
   const id = panelScript.value?.id
-  if (!id) return { running: false, ad_left: 3, claimed_q3: 0, claimed_q4: 0, claimed_q5: 0, rp_diamond: 0, rp_grabbed: 0 }
+  if (!id) return { running: false, ad_left: 0, claimed_q3: 0, claimed_q4: 0, claimed_q5: 0, rp_diamond: 0, rp_grabbed: 0 }
   try {
     const res = await scriptAPI.runtimeStats(id)
     return res.data
   } catch (e) {
     console.warn('[Home] getRuntimeStats 失败:', e.message)
-    return { running: false, ad_left: 3, claimed_q3: 0, claimed_q4: 0, claimed_q5: 0, rp_diamond: 0, rp_grabbed: 0 }
+    return { running: false, ad_left: 0, claimed_q3: 0, claimed_q4: 0, claimed_q5: 0, rp_diamond: 0, rp_grabbed: 0 }
   }
 }
 
