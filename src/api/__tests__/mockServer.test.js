@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { handleMockRequest } from '../mockServer'
 
 beforeEach(() => {
@@ -57,63 +57,23 @@ describe('mock 脚本', () => {
     expect(res.data.config).toEqual({ a: 1 })
   })
 
-  it('runtime-stats 未运行返回 0 统计', () => {
-    const res = handleMockRequest('/scripts/1/runtime-stats')
+  it('runtime-stats 返回脚本运行状态与占位统计（真实数据待后端）', () => {
+    const res = handleMockRequest('/scripts/3/runtime-stats') // 脚本3 一路狂飙，初始 stopped
     expect(res.success).toBe(true)
     expect(res.data.running).toBe(false)
-    expect(res.data.ad_left).toBe(3)
+    expect(res.data.ad_left).toBe(0)
+    expect(res.data.claimed_q3).toBe(0)
+    expect(res.data.claimed_q4).toBe(0)
+    expect(res.data.claimed_q5).toBe(0)
+    expect(res.data.rp_diamond).toBe(0)
+    expect(res.data.rp_grabbed).toBe(0)
   })
 
-  it('toggle 运行后 runtime-stats 返回 running 统计结构', () => {
-    handleMockRequest('/scripts/2/toggle', { method: 'POST' }) // 脚本2初始 stopped
+  it('runtime-stats 的 running 反映脚本状态', () => {
+    handleMockRequest('/scripts/2/toggle', { method: 'POST' }) // 启动脚本2
     const res = handleMockRequest('/scripts/2/runtime-stats')
-    expect(res.success).toBe(true)
     expect(res.data.running).toBe(true)
-    expect(typeof res.data.ad_left).toBe('number')
-    expect(res.data.ad_left).toBeLessThanOrEqual(3)
-    expect(res.data.claimed_q3).toBeGreaterThanOrEqual(0)
-    expect(res.data.claimed_q4).toBeGreaterThanOrEqual(0)
-    expect(res.data.claimed_q5).toBeGreaterThanOrEqual(0)
-    expect(res.data.rp_diamond).toBeGreaterThanOrEqual(0)
-  })
-
-  it('停止后冻结本次累计（保留运行期增量）', () => {
-    vi.useFakeTimers()
-    try {
-      vi.setSystemTime(new Date('2026-08-12T00:00:00Z'))
-      handleMockRequest('/scripts/2/toggle', { method: 'POST' }) // 启动，start_time = T0
-      vi.setSystemTime(new Date('2026-08-12T00:01:20Z')) // 前进 80 秒
-      handleMockRequest('/scripts/2/toggle', { method: 'POST' }) // 停止，冻结运行期增量
-      const res = handleMockRequest('/scripts/2/runtime-stats')
-      expect(res.data.running).toBe(false)
-      expect(res.data.claimed_q3).toBe(10)   // floor(80/8)=10
-      expect(res.data.claimed_q4).toBe(4)    // floor(80/20)=4
-      expect(res.data.claimed_q5).toBe(2)    // floor(80/40)=2
-      expect(res.data.rp_diamond).toBe(25)   // floor(80/15)*5=25
-      expect(res.data.ad_left).toBe(3)       // floor(80/120)=0，3-0=3
-    } finally {
-      vi.useRealTimers()
-    }
-  })
-
-  it('重新启动后统计重新累计（归零）', () => {
-    vi.useFakeTimers()
-    try {
-      vi.setSystemTime(new Date('2026-08-12T00:00:00Z'))
-      handleMockRequest('/scripts/2/toggle', { method: 'POST' }) // 启动
-      vi.setSystemTime(new Date('2026-08-12T00:01:20Z')) // 前进 80 秒
-      handleMockRequest('/scripts/2/toggle', { method: 'POST' }) // 停止冻结
-      handleMockRequest('/scripts/2/toggle', { method: 'POST' }) // 重新启动（重置归零）
-      const res = handleMockRequest('/scripts/2/runtime-stats')
-      expect(res.data.running).toBe(true)
-      expect(res.data.claimed_q3).toBe(0)
-      expect(res.data.claimed_q4).toBe(0)
-      expect(res.data.claimed_q5).toBe(0)
-      expect(res.data.rp_diamond).toBe(0)
-      expect(res.data.ad_left).toBe(3)
-    } finally {
-      vi.useRealTimers()
-    }
+    expect(res.data.claimed_q3).toBe(0) // 占位 0，非模拟
   })
 })
 
