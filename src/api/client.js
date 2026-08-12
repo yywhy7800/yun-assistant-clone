@@ -62,6 +62,7 @@ export const scriptAPI = {
   renew: (id, days) => request(`/scripts/${id}/renew`, { method: 'POST', body: JSON.stringify({ days }) }),
   getConfig: (id) => request(`/scripts/${id}/config`),
   saveConfig: (id, config) => request(`/scripts/${id}/config`, { method: 'PUT', body: JSON.stringify({ config }) }),
+  runtimeStats: (id) => request(`/scripts/${id}/runtime-stats`),
   // 日志: date=today|yesterday|week, search 为关键词（后端转义通配符按字面匹配）
   logs: (id, params = {}) => {
     const qs = []

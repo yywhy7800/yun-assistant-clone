@@ -766,6 +766,19 @@ window.saveScriptConfig = async (configJson) => {
   }
 }
 
+// 配置 iframe 获取运行统计（mock 模拟运行累积，实时刷新）
+window.getRuntimeStats = async () => {
+  const id = panelScript.value?.id
+  if (!id) return { running: false, ad_left: 3, claimed_q3: 0, claimed_q4: 0, claimed_q5: 0, rp_diamond: 0, rp_grabbed: 0 }
+  try {
+    const res = await scriptAPI.runtimeStats(id)
+    return res.data
+  } catch (e) {
+    console.warn('[Home] getRuntimeStats 失败:', e.message)
+    return { running: false, ad_left: 3, claimed_q3: 0, claimed_q4: 0, claimed_q5: 0, rp_diamond: 0, rp_grabbed: 0 }
+  }
+}
+
 // ==================== 基础状态 ====================
 
 // 当前用户名（从 sessionStorage 获取；缺失/损坏时不硬编码占位名，等 me 同步后展示真实用户名）
