@@ -14,7 +14,7 @@
 | # | 需求 | 说明 |
 |---|------|------|
 | R1 | 脚本类型 | 名称「一路狂飙」、emoji 🏎️、id 用「一路狂飙」、渠道 iOS/安卓 |
-| R2 | 配置项 | 基础设置 / 三倍芯片 / 抢红包可配置；**通关设置锁定占位**（面板体现该功能，点击提示"此功能暂不对外开放，如需使用请联系上级"） |
+| R2 | 配置项 | 基础设置（重连间隔只读 5~120秒）/ **完美通关**（完美通关、未通关关卡两个锁定分支，点击提示"暂不对外开放，如需要请联系上级"）/ 三倍芯片（含**本次已领蓝紫金统计**）/ **抢红包（世界）**（含**累计钻石统计**） |
 | R3 | 配置面板 | game2/config.html 由占位改为加载通用渲染器 config.js 渲染真实表单 |
 | R4 | Mock 数据 | 一路狂飙示例脚本，gameType 用 `kb` |
 | R5 | 测试 | 相关断言从 `game2` 同步为 `kb` |
@@ -52,7 +52,7 @@ window.CONFIG_SCHEMA = {
       "description": "基础设置",
       "properties": {
         "autoReconnect": {"type": "boolean", "description": "自动重连", "default": true},
-        "reconnectInterval": {"type": "integer", "description": "重连间隔(分)", "default": 10, "min": 1, "dependsOn": "autoReconnect"},
+        "reconnectInterval": {"type": "display", "description": "重连间隔", "value": "5~120 秒（指数退避）"},
         "loginMethod": {
           "type": "select", "description": "登录方式", "default": "auto",
           "options": [
@@ -64,9 +64,10 @@ window.CONFIG_SCHEMA = {
       }
     },
     "clear": {
-      "description": "通关设置",
+      "description": "完美通关",
       "properties": {
-        "autoClear": {"type": "locked", "description": "自动通关", "lockedMessage": "此功能暂不对外开放，如需使用请联系上级"}
+        "perfectClear": {"type": "locked", "description": "完美通关", "lockedMessage": "暂不对外开放，如需要请联系上级"},
+        "unfinishedLevel": {"type": "locked", "description": "未通关关卡", "lockedMessage": "暂不对外开放，如需要请联系上级"}
       }
     },
     "triple": {
@@ -81,14 +82,16 @@ window.CONFIG_SCHEMA = {
             {"value": "q4", "label": "Q4 紫"},
             {"value": "q5", "label": "Q5 金"}
           ]
-        }
+        },
+        "tripleStats": {"type": "display", "description": "本次已领", "value": "蓝 0 · 紫 0 · 金 0"}
       }
     },
     "redpocket": {
-      "description": "抢红包",
+      "description": "抢红包（世界）",
       "properties": {
         "autoRedpocket": {"type": "boolean", "description": "自动抢红包", "default": false},
-        "rpTarget": {"type": "integer", "description": "目标红包数", "default": 10, "min": 1, "max": 10, "dependsOn": "autoRedpocket"}
+        "rpTarget": {"type": "integer", "description": "目标红包数", "default": 10, "min": 1, "max": 10, "dependsOn": "autoRedpocket"},
+        "rpDiamond": {"type": "display", "description": "累计钻石", "value": "0"}
       }
     }
   }
@@ -106,6 +109,7 @@ window.CONFIG_SCHEMA = {
 - 加载链改为：**config.schema.js（本目录）→ config.css（上级目录）→ config.js（上级目录）**，**不加载** flowers/vases/flowerArt/flowerElves 数据。
 - 与 Home.vue 的 iframe 协议兼容（`updateConfigFromParent` / `saveConfig` 由 config.js 提供，与小花仙一致）。
 - **config.js 新增 `locked` 字段类型**（渲染分支）：渲染"功能名 + 暂不开放"占位行，点击调用 `showToast` 显示 `lockedMessage`；渲染时不生成带 fieldId 的控件，`readFormData` 收集时因 `if (!element) return` 自动跳过该字段。小花仙 schema 不使用该类型，无副作用。
+- **config.js 新增 `display` 字段类型**（渲染分支）：渲染只读展示行（label + value），不交互、不参与保存（同样无 fieldId 控件，readFormData 自动跳过）。用于重连间隔（5~120 秒）、蓝紫金统计、钻石统计等固定/展示值。
 
 ### 3.4 Mock 数据（`src/api/mockServer.js`）
 
