@@ -135,36 +135,24 @@ window.CONFIG_SCHEMA = {
 | `src/api/mockServer.js` | 修改：DEFAULT_SCRIPTS 一路狂飙示例 |
 | `src/api/__tests__/mockServer.test.js` | 修改：game2 → 一路狂飙 |
 
-## 4.5 查询剩余次数与动态统计（新增）
+## 4.5 查询剩余次数与动态统计（2026-08-13 修订：移除 mock 模拟，保留展示位等真实数据）
 
 **需求**：
 - 三倍芯片组新增「剩余3倍次数」**自动查询展示**（打开配置面板自动查询，无需按钮）。
-- 蓝紫金/钻石统计改为**动态**：脚本运行（running）时 mock 模拟累积，配置面板定时轮询刷新。
+- 蓝紫金/钻石统计**保留展示位**，**不做 mock 模拟**，当前显示**占位 0**，**等真实后端脚本接入后显示真实统计**（真实脚本运行记录写入）。
 
-**Mock 端（`src/api/mockServer.js`）——对齐 Web 面板「本次累计」语义**：
-- `mock_runtime` 结构：`{ [id]: { running, start_time, stats } }`。
-- 脚本 toggle **启动**（running）时：**重置本次统计**为 0（ad_left=3），记录 start_time。
-- 脚本 toggle **停止**（stopped）时：**冻结本次累计**（把运行期增量并入 stats，running=false，**保留本次结果**）。
-- `GET /scripts/:id/runtime-stats`：running 时返回「已累计 stats + 运行期增量」，stopped 时返回「冻结的本次累计」。查询驱动、无定时器：
-  - `ad_left`：初始 3，每 120 秒 -1（最低 0）
-  - `claimed_q3/q4/q5`：蓝每 8 秒 +1、紫每 20 秒 +1、金每 40 秒 +1
-  - `rp_diamond`：每 15 秒 +5；`rp_grabbed`：每 15 秒 +1
-- 语义：**每次启动从 0 重新累计（本次会话）**，停止后保留本次累计结果；接真实脚本后由真实运行记录写入。
+**Mock 端（`src/api/mockServer.js`）——占位实现（不做模拟）**：
+- `GET /scripts/:id/runtime-stats` 返回脚本运行状态（`running` 基于脚本 status）+ **占位 0 统计**（ad_left/claimed_q3/q4/q5/rp_diamond/rp_grabbed 全 0）。
+- **移除**运行时长推算的模拟累积逻辑（不做假数据）。
 
-**API 与桥接**：
-- `client.js`：`scriptAPI.runtimeStats(id)` → `GET /scripts/:id/runtime-stats`
-- `Home.vue`：暴露 `window.getRuntimeStats = () => scriptAPI.runtimeStats(panelScript.value.id).then(r => r.data)`，供 iframe 调用
+**真实数据接入（保留架构，前端无需改动）**：
+- `client.js`：`scriptAPI.runtimeStats(id)` → `GET /scripts/:id/runtime-stats`（真实后端实现后返回真实统计）。
+- `Home.vue`：暴露 `window.getRuntimeStats = () => scriptAPI.runtimeStats(panelScript.value.id).then(r => r.data)`，供 iframe 调用。
+- `config.js`：display 渲染带 `data-display-value`，`window.setDisplayValue(fieldId, text)` 动态更新。
+- `game2/config.html`：每 3 秒轮询 `window.parent.getRuntimeStats()` 更新展示位。
+- schema：`adLeft`（剩余3倍次数）、`tripleStats`（蓝紫金）、`rpDiamond`（钻石）展示位保留，当前占位 0。
 
-**display 动态更新（config.js）**：
-- display 渲染时 value span 加 `data-display-value` 属性。
-- 新增 `window.setDisplayValue(fieldId, text)`：按 id 更新 value span 文本。
-
-**面板轮询（game2/config.html）**：
-- 加载后每 3 秒调用 `window.parent.getRuntimeStats()`，用 `setDisplayValue` 更新统计 display。
-
-**config.schema.js**：
-- 三倍芯片组新增 `adLeft`：`{"type": "display", "description": "剩余3倍次数", "value": "查询中…"}`（自动查询展示，运行时更新）。
-- `tripleStats`、`rpDiamond` 保留，运行时动态更新。
+**说明**：真实后端脚本接入后，runtime-stats 接口返回真实运行统计，前端展示位自动显示真实数据。
 
 ## 五、验证方式
 
