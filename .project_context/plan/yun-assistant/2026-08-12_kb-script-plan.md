@@ -78,19 +78,54 @@ git commit -m "feat: 一路狂飙脚本类型注册（iOS/安卓渠道）" -m "#
 
 ---
 
-## Task 2: 一路狂飙配置 schema
+## Task 2: config.js 新增 locked 字段类型
+
+**Files:**
+- Modify: `public/config-pages/config.js`
+
+**Interfaces:**
+- Produces: `createFieldElement` 支持 `locked` 类型（渲染占位行 + 点击 `showToast`）；`readFormData` 因渲染无 fieldId 控件自动跳过该字段（`if (!element) return`）
+
+- [ ] **Step 1: 新增 locked 类型渲染分支**
+
+在 `public/config-pages/config.js` 的 `string` 分支（`} else if (propSchema.type === 'string') {`）结束之后、`memberList` 分支之前，插入以下分支：
+```js
+  } else if (propSchema.type === 'locked') {
+    // 锁定功能：占位展示，点击提示（暂不对外开放）
+    const lockedMsg = propSchema.lockedMessage || '此功能暂不对外开放，如需使用请联系上级';
+    field.innerHTML = `
+      <div class="locked-feature" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#f7f8fa;border:1px dashed #e0e0e0;border-radius:8px;cursor:pointer;user-select:none;">
+        <span style="font-size:14px;color:#333;">${label}</span>
+        <span style="font-size:12px;color:#999;border:1px solid #d9d9d9;border-radius:3px;padding:1px 5px;">暂不开放</span>
+      </div>
+    `;
+    field.querySelector('.locked-feature').addEventListener('click', () => showToast(lockedMsg));
+  }
+```
+
+- [ ] **Step 2: 提交**
+
+```bash
+git add public/config-pages/config.js
+git commit -m "feat: config 渲染器新增 locked 锁定占位类型" -m "#AI"
+```
+
+---
+
+## Task 3: 一路狂飙配置 schema
 
 **Files:**
 - Create: `public/config-pages/game2/config.schema.js`
 
 **Interfaces:**
-- Produces: `window.CONFIG_SCHEMA`（基础/通关/三倍/抢红包 4 组），供 Task 3 的 config.html 加载渲染
+- Consumes: `locked` 类型（Task 2）
+- Produces: `window.CONFIG_SCHEMA`（基础/通关锁定/三倍/抢红包 4 组），供 Task 4 的 config.html 加载渲染
 
 - [ ] **Step 1: 新建配置 schema**
 
 Create `public/config-pages/game2/config.schema.js`:
 ```js
-// 一路狂飙 配置 Schema（对照 Web 面板功能：通关/三倍芯片/抢红包/基础设置）
+// 一路狂飙 配置 Schema（对照 Web 面板功能：基础/通关/三倍芯片/抢红包）
 window.CONFIG_SCHEMA = {
   "properties": {
     "basic": {
@@ -111,10 +146,7 @@ window.CONFIG_SCHEMA = {
     "clear": {
       "description": "通关设置",
       "properties": {
-        "autoClear": {"type": "boolean", "description": "自动通关", "default": true},
-        "clearLevel": {"type": "integer", "description": "通关关卡", "default": 260, "min": 1, "dependsOn": "autoClear"},
-        "clearTime": {"type": "integer", "description": "通关时间(秒)", "default": 300, "min": 1, "dependsOn": "autoClear"},
-        "skillSelects": {"type": "integer", "description": "技能次数", "default": 20, "min": 1, "max": 30, "dependsOn": "autoClear"}
+        "autoClear": {"type": "locked", "description": "自动通关", "lockedMessage": "此功能暂不对外开放，如需使用请联系上级"}
       }
     },
     "triple": {
@@ -147,18 +179,18 @@ window.CONFIG_SCHEMA = {
 
 ```bash
 git add public/config-pages/game2/config.schema.js
-git commit -m "feat: 一路狂飙配置 schema（基础/通关/三倍/抢红包）" -m "#AI"
+git commit -m "feat: 一路狂飙配置 schema（基础/通关锁定/三倍/抢红包）" -m "#AI"
 ```
 
 ---
 
-## Task 3: 配置面板改为通用渲染器
+## Task 4: 配置面板改为通用渲染器
 
 **Files:**
 - Replace: `public/config-pages/game2/config.html`
 
 **Interfaces:**
-- Consumes: `config.schema.js`（Task 2，同目录）、上级 `../config.css`、`../config.js`；DOM 提供 `loadingOverlay`/`configContent`/`toast`
+- Consumes: `config.schema.js`（Task 3，同目录）、上级 `../config.css`、`../config.js`（含 locked 类型，Task 2）；DOM 提供 `loadingOverlay`/`configContent`/`toast`
 - Produces: iframe 页面，加载后 `updateConfigFromParent` / `saveConfig` 可用（由 config.js 提供）
 
 - [ ] **Step 1: 替换 config.html**
@@ -257,7 +289,7 @@ git commit -m "feat: 一路狂飙配置面板接入通用渲染器" -m "#AI"
 
 ---
 
-## Task 4: mock 数据与测试更新
+## Task 5: mock 数据与测试更新
 
 **Files:**
 - Modify: `src/api/mockServer.js`（DEFAULT_SCRIPTS）
@@ -299,7 +331,7 @@ git commit -m "feat: mock 数据更新为一路狂飙脚本" -m "#AI"
 
 ---
 
-## Task 5: 端到端验证
+## Task 6: 端到端验证
 
 **Files:** 无代码改动，仅验证
 
@@ -317,9 +349,10 @@ Expected: 全部 PASS + build 成功
 启动 `npm run dev`，用 Chrome DevTools MCP 走查：
 1. 首页出现「🏎️ 一路狂飙」脚本卡片（原 game2 卡片名更新）
 2. 添加脚本 → 选「一路狂飙」→ 渠道 iOS/安卓 可选
-3. 一路狂飙脚本「配置」→ 面板渲染真实表单：基础设置/通关设置/三倍芯片/抢红包 4 组
-4. 小花仙脚本配置面板不受影响（仍 20 组）
-5. 表单可交互（开关联动、select 可选）
+3. 一路狂飙脚本「配置」→ 面板渲染：基础设置/通关设置(锁定占位)/三倍芯片/抢红包 4 组
+4. **通关设置**显示「自动通关 + 暂不开放」，**点击提示「此功能暂不对外开放，如需使用请联系上级」**
+5. 小花仙脚本配置面板不受影响（仍 20 组）
+6. 表单可交互（开关联动、select 可选）
 
 - [ ] **Step 3: 最终提交（如有遗留）**
 

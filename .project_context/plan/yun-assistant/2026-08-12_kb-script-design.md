@@ -14,7 +14,7 @@
 | # | 需求 | 说明 |
 |---|------|------|
 | R1 | 脚本类型 | 名称「一路狂飙」、emoji 🏎️、id 用「一路狂飙」、渠道 iOS/安卓 |
-| R2 | 配置项 | 对照 web 面板全部模块：基础设置 / 通关设置 / 三倍芯片 / 抢红包 |
+| R2 | 配置项 | 基础设置 / 三倍芯片 / 抢红包可配置；**通关设置锁定占位**（面板体现该功能，点击提示"此功能暂不对外开放，如需使用请联系上级"） |
 | R3 | 配置面板 | game2/config.html 由占位改为加载通用渲染器 config.js 渲染真实表单 |
 | R4 | Mock 数据 | 一路狂飙示例脚本，gameType 用 `kb` |
 | R5 | 测试 | 相关断言从 `game2` 同步为 `kb` |
@@ -66,10 +66,7 @@ window.CONFIG_SCHEMA = {
     "clear": {
       "description": "通关设置",
       "properties": {
-        "autoClear": {"type": "boolean", "description": "自动通关", "default": true},
-        "clearLevel": {"type": "integer", "description": "通关关卡", "default": 260, "min": 1, "dependsOn": "autoClear"},
-        "clearTime": {"type": "integer", "description": "通关时间(秒)", "default": 300, "min": 1, "dependsOn": "autoClear"},
-        "skillSelects": {"type": "integer", "description": "技能次数", "default": 20, "min": 1, "max": 30, "dependsOn": "autoClear"}
+        "autoClear": {"type": "locked", "description": "自动通关", "lockedMessage": "此功能暂不对外开放，如需使用请联系上级"}
       }
     },
     "triple": {
@@ -98,7 +95,7 @@ window.CONFIG_SCHEMA = {
 }
 ```
 
-- 仅用 `boolean / integer / select` 类型，**不涉及花朵/花灵/花瓶数据**，config.js 通用渲染器可直接渲染。
+- 仅用 `boolean / integer / select / locked` 类型，**不涉及花朵/花灵/花瓶数据**；`locked` 类型由 config.js 新增渲染分支支持（见 3.3）。
 - `select` 选项结构（`value/label` 数组）与小花仙 `plantMode` 一致。
 
 ### 3.3 配置面板（替换 `public/config-pages/game2/config.html`）
@@ -108,6 +105,7 @@ window.CONFIG_SCHEMA = {
 - 复制小花仙 `config.html` 的 DOM 结构：`loadingOverlay`、`configContent`、`toast`。
 - 加载链改为：**config.schema.js（本目录）→ config.css（上级目录）→ config.js（上级目录）**，**不加载** flowers/vases/flowerArt/flowerElves 数据。
 - 与 Home.vue 的 iframe 协议兼容（`updateConfigFromParent` / `saveConfig` 由 config.js 提供，与小花仙一致）。
+- **config.js 新增 `locked` 字段类型**（渲染分支）：渲染"功能名 + 暂不开放"占位行，点击调用 `showToast` 显示 `lockedMessage`；渲染时不生成带 fieldId 的控件，`readFormData` 收集时因 `if (!element) return` 自动跳过该字段。小花仙 schema 不使用该类型，无副作用。
 
 ### 3.4 Mock 数据（`src/api/mockServer.js`）
 
@@ -126,11 +124,12 @@ window.CONFIG_SCHEMA = {
 
 | 文件 | 操作 |
 |------|------|
-| `src/config/scriptTypes.js` | 修改：game2 → kb（名称/emoji/颜色/渠道） |
+| `src/config/scriptTypes.js` | 修改：game2 → 一路狂飙（名称/emoji/颜色/渠道） |
+| `public/config-pages/config.js` | 修改：新增 `locked` 字段类型渲染分支 |
 | `public/config-pages/game2/config.schema.js` | 新建：一路狂飙配置 schema |
 | `public/config-pages/game2/config.html` | 替换：占位页 → 通用渲染器加载页 |
 | `src/api/mockServer.js` | 修改：DEFAULT_SCRIPTS 一路狂飙示例 |
-| `src/api/__tests__/mockServer.test.js` | 修改：game2 → kb |
+| `src/api/__tests__/mockServer.test.js` | 修改：game2 → 一路狂飙 |
 
 ## 五、验证方式
 
