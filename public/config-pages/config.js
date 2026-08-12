@@ -773,6 +773,16 @@ function createFieldElement(propSchema, fieldId, label, value, groupProps = {}) 
         }, 0);
       }
     }
+  } else if (propSchema.type === 'locked') {
+    // 锁定功能：占位展示，点击提示（暂不对外开放）
+    const lockedMsg = propSchema.lockedMessage || '此功能暂不对外开放，如需使用请联系上级';
+    field.innerHTML = `
+      <div class="locked-feature" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#f7f8fa;border:1px dashed #e0e0e0;border-radius:8px;cursor:pointer;user-select:none;">
+        <span style="font-size:14px;color:#333;">${label}</span>
+        <span style="font-size:12px;color:#999;border:1px solid #d9d9d9;border-radius:3px;padding:1px 5px;">暂不开放</span>
+      </div>
+    `;
+    field.querySelector('.locked-feature').addEventListener('click', () => showToast(lockedMsg));
   } else if (propSchema.type === 'memberList') {
     // 成员列表：输入玩家名回车添加，tag形式展示
     const helpIcon = propSchema.help ? `<span class="help-icon" data-help="${propSchema.help}">ⓘ</span>` : '';
