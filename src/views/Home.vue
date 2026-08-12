@@ -57,6 +57,7 @@
               <div class="role-name">{{ script.roleName }}</div>
               <div class="server">{{ script.server }}</div>
             </div>
+            <span class="game-tag">{{ gameLabel(script.gameType) }}</span>
           </div>
           <van-tag
             :type="script.status === 'running' ? 'success' : 'danger'"
@@ -730,6 +731,7 @@ import {
 } from '../api/mock.js'
 import AddAccountForm from '../components/AddAccountForm.vue'
 import { authAPI, billingAPI, cardAPI, contentAPI, promoAPI, scriptAPI, sunAPI } from '../api/client'
+import { getScriptType } from '../config/scriptTypes'
 
 const router = useRouter()
 
@@ -1021,13 +1023,21 @@ function getChannelEmoji(channel) {
   return emojis[channel] || '📱'
 }
 
+/** 游戏标签文案（如 "🌸 小花仙"），未知 gameType 返回空 */
+function gameLabel(gameType) {
+  const t = getScriptType(gameType)
+  return t ? `${t.emoji} ${t.name}` : ''
+}
+
 // ==================== 面板打开/关闭 ====================
 
-/** 打开配置面板 — iframe 加载原站 config.html */
+/** 打开配置面板 — iframe 加载对应游戏的 config.html */
 function openConfigPanel(script) {
   panelScript.value = script
+  const type = getScriptType(script.gameType)
+  const base = (type && type.configPath) || '/config-pages/config.html'
   // 加时间戳防缓存，确保每次打开都是新加载
-  configIframeSrc.value = '/config-pages/config.html?v=2.0.130&_t=' + Date.now()
+  configIframeSrc.value = base + '?v=2.0.130&_t=' + Date.now()
   configPanelVisible.value = true
 }
 
@@ -1808,6 +1818,18 @@ async function onAddAccountSuccess() {
   font-size: 13px;
   color: #969799;
   margin-top: 2px;
+}
+
+/* 游戏标签 */
+.game-tag {
+  margin-left: 8px;
+  padding: 2px 6px;
+  font-size: 11px;
+  line-height: 16px;
+  color: #667eea;
+  background: #eef0ff;
+  border-radius: 4px;
+  white-space: nowrap;
 }
 
 /* 卡片详情 */
