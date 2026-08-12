@@ -7,7 +7,7 @@
 const LS_SCRIPTS = 'mock_scripts'
 const LS_USER = 'mock_user'
 const LS_CONFIGS = 'mock_configs'
-const LS_RUNTIME = 'mock_runtime' // { [scriptId]: start_time }
+const LS_RUNTIME = 'mock_runtime' // { [id]: { running, start_time, stats } }
 
 /** 初始脚本数据：覆盖两个游戏（gs 小花仙 / 一路狂飙） */
 const DEFAULT_SCRIPTS = [
@@ -37,7 +37,7 @@ function addDays(n) {
   d.setDate(d.getDate() + n)
   return d.toISOString().slice(0, 10)
 }
-function getScripts() { return read(LS_SCRIPTS, DEFAULT_SCRIPTS) }
+function getScripts() { return JSON.parse(JSON.stringify(read(LS_SCRIPTS, DEFAULT_SCRIPTS))) }
 function getSunBalance() { return read(LS_USER, { sun_balance: 0 }).sun_balance }
 
 // ==================== auth ====================
@@ -91,8 +91,15 @@ function mockToggle(id) {
   s.status = s.status === 'running' ? 'stopped' : 'running'
   write(LS_SCRIPTS, list)
   const rt = read(LS_RUNTIME, {})
-  if (s.status === 'running') rt[id] = Date.now()
-  else delete rt[id]
+  if (s.status === 'running') {
+    // 启动：重置本次统计为 0，记录启动时间（本次累计从 0 开始）
+    rt[id] = { running: true, start_time: Date.now(), stats: { q3: 0, q4: 0, q5: 0, diamond: 0, grabbed: 0, ad_left: 3 } }
+  } else {
+    // 停止：冻结本次累计（合并运行期增量，保留本次结果）
+    const cur = rt[id]
+    const frozen = cur && cur.running ? computeRuntimeStats(cur) : { stats: { q3: 0, q4: 0, q5: 0, diamond: 0, grabbed: 0, ad_left: 3 } }
+    rt[id] = { running: false, start_time: null, stats: frozen.stats }
+  }
   write(LS_RUNTIME, rt)
   return ok({ newStatus: s.status }, '操作成功')
 }
@@ -137,21 +144,36 @@ function mockLogs(id) {
   ] }, 'ok')
 }
 
+function computeRuntimeStats(runtime) {
+  const zero = { q3: 0, q4: 0, q5: 0, diamond: 0, grabbed: 0, ad_left: 3 }
+  if (!runtime || !runtime.running) return { running: false, stats: runtime ? runtime.stats : zero }
+  const elapsed = Math.floor((Date.now() - runtime.start_time) / 1000)
+  const s = runtime.stats
+  return {
+    running: true,
+    stats: {
+      q3: s.q3 + Math.floor(elapsed / 8),
+      q4: s.q4 + Math.floor(elapsed / 20),
+      q5: s.q5 + Math.floor(elapsed / 40),
+      diamond: s.diamond + Math.floor(elapsed / 15) * 5,
+      grabbed: s.grabbed + Math.floor(elapsed / 15),
+      ad_left: Math.max(0, s.ad_left - Math.floor(elapsed / 120)),
+    },
+  }
+}
+
 function mockRuntimeStats(id) {
   const rt = read(LS_RUNTIME, {})
-  const start = rt[id]
-  if (!start) {
-    return ok({ running: false, ad_left: 3, claimed_q3: 0, claimed_q4: 0, claimed_q5: 0, rp_diamond: 0, rp_grabbed: 0 }, 'ok')
-  }
-  const elapsed = Math.floor((Date.now() - start) / 1000)
+  const r = computeRuntimeStats(rt[id])
+  const st = r.stats
   return ok({
-    running: true,
-    ad_left: Math.max(0, 3 - Math.floor(elapsed / 120)),
-    claimed_q3: Math.floor(elapsed / 8),
-    claimed_q4: Math.floor(elapsed / 20),
-    claimed_q5: Math.floor(elapsed / 40),
-    rp_diamond: Math.floor(elapsed / 15) * 5,
-    rp_grabbed: Math.floor(elapsed / 15),
+    running: r.running,
+    ad_left: st.ad_left,
+    claimed_q3: st.q3,
+    claimed_q4: st.q4,
+    claimed_q5: st.q5,
+    rp_diamond: st.diamond,
+    rp_grabbed: st.grabbed,
   }, 'ok')
 }
 

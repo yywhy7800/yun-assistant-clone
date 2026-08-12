@@ -76,6 +76,16 @@ describe('mock 脚本', () => {
     expect(res.data.claimed_q5).toBeGreaterThanOrEqual(0)
     expect(res.data.rp_diamond).toBeGreaterThanOrEqual(0)
   })
+
+  it('停止后冻结本次累计（running 变 false，stats 保留）', () => {
+    handleMockRequest('/scripts/2/toggle', { method: 'POST' }) // 启动
+    handleMockRequest('/scripts/2/toggle', { method: 'POST' }) // 停止
+    const res = handleMockRequest('/scripts/2/runtime-stats')
+    expect(res.success).toBe(true)
+    expect(res.data.running).toBe(false)
+    expect(typeof res.data.claimed_q3).toBe('number')
+    expect(res.data.claimed_q3).toBeGreaterThanOrEqual(0)
+  })
 })
 
 describe('mock 其他接口', () => {
