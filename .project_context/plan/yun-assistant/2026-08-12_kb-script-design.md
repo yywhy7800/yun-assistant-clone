@@ -141,12 +141,15 @@ window.CONFIG_SCHEMA = {
 - 三倍芯片组新增「剩余3倍次数」**自动查询展示**（打开配置面板自动查询，无需按钮）。
 - 蓝紫金/钻石统计改为**动态**：脚本运行（running）时 mock 模拟累积，配置面板定时轮询刷新。
 
-**Mock 端（`src/api/mockServer.js`）**：
-- 脚本 toggle 为 running 时记录 `start_time`（存 `mock_runtime`），stopped 时清除。
-- 新增 `GET /scripts/:id/runtime-stats`：按运行时长（elapsed = now - start_time）模拟统计，**查询驱动、无定时器**：
+**Mock 端（`src/api/mockServer.js`）——对齐 Web 面板「本次累计」语义**：
+- `mock_runtime` 结构：`{ [id]: { running, start_time, stats } }`。
+- 脚本 toggle **启动**（running）时：**重置本次统计**为 0（ad_left=3），记录 start_time。
+- 脚本 toggle **停止**（stopped）时：**冻结本次累计**（把运行期增量并入 stats，running=false，**保留本次结果**）。
+- `GET /scripts/:id/runtime-stats`：running 时返回「已累计 stats + 运行期增量」，stopped 时返回「冻结的本次累计」。查询驱动、无定时器：
   - `ad_left`：初始 3，每 120 秒 -1（最低 0）
   - `claimed_q3/q4/q5`：蓝每 8 秒 +1、紫每 20 秒 +1、金每 40 秒 +1
   - `rp_diamond`：每 15 秒 +5；`rp_grabbed`：每 15 秒 +1
+- 语义：**每次启动从 0 重新累计（本次会话）**，停止后保留本次累计结果；接真实脚本后由真实运行记录写入。
 
 **API 与桥接**：
 - `client.js`：`scriptAPI.runtimeStats(id)` → `GET /scripts/:id/runtime-stats`
