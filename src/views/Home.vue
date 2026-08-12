@@ -1595,11 +1595,16 @@ function selectRole(role) {
 
 async function confirmCreate() {
   creating.value = true
-  await new Promise((r) => setTimeout(r, 800))
-  creating.value = false
-  try { await refreshScripts() } catch (e) {}
-  showSuccessToast('创建成功')
-  addScriptVisible.value = false
+  try {
+    await scriptAPI.create({ copyOf: selectedRole.value.id })
+    await refreshScripts()
+    showSuccessToast('创建成功')
+    addScriptVisible.value = false
+  } catch (e) {
+    showFailToast(e.message || '创建失败')
+  } finally {
+    creating.value = false
+  }
 }
 
 /** 绑定新账号成功 → 回账号列表并刷新 */

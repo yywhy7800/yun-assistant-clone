@@ -3,7 +3,6 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
 import Home from '../views/Home.vue'
-import AddAccount from '../views/AddAccount.vue'
 
 // 路由配置 - hash 模式，路径带 #/
 const routes = [
@@ -24,12 +23,6 @@ const routes = [
     name: 'Register',
     component: Register,
     meta: { title: '注册' },
-  },
-  {
-    path: '/add-account',
-    name: 'AddAccount',
-    component: AddAccount,
-    meta: { title: '添加脚本' },
   },
   // 未匹配路由重定向到登录
   {
