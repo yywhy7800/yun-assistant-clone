@@ -22,7 +22,7 @@ describe('mock 脚本', () => {
     const res = handleMockRequest('/scripts')
     const games = new Set(res.data.scripts.map((s) => s.gameType))
     expect(games.has('gs')).toBe(true)
-    expect(games.has('game2')).toBe(true)
+    expect(games.has('一路狂飙')).toBe(true)
   })
 
   it('绑定 game2 新脚本', () => {

@@ -12,7 +12,7 @@ const LS_CONFIGS = 'mock_configs'
 const DEFAULT_SCRIPTS = [
   { id: 1, gameType: 'gs', roleName: '旅行者', server: '天空岛', status: 'running', channel: 'official', account: 'yun001', number: 'NO.1001', expire: '2026-09-12' },
   { id: 2, gameType: 'gs', roleName: '刻晴', server: '天空岛', status: 'stopped', channel: 'bilibili', account: 'yun001', number: 'NO.1002', expire: '2026-08-30' },
-  { id: 3, gameType: 'game2', roleName: '星之来客', server: '银河', status: 'stopped', channel: 'official', account: 'star001', number: 'NO.2001', expire: '2026-09-01' },
+  { id: 3, gameType: '一路狂飙', roleName: '狂飙车手', server: '国服', status: 'stopped', channel: 'android', account: 'kb001', number: 'NO.2001', expire: '2026-09-01' },
 ]
 
 let mockNextId = 100
