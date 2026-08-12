@@ -22,12 +22,13 @@ export const scriptTypes = [
     statusPath: '/status-pages/status.html',
   },
   {
-    id: 'game2',
-    name: '新游戏',
-    emoji: '🎮',
-    color: '#07c160',
+    id: '一路狂飙',
+    name: '一路狂飙',
+    emoji: '🏎️',
+    color: '#ff4d4f',
     channels: [
-      { name: '官服', color: '#1989fa', channel: 'official', available: true, iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56"><rect width="56" height="56" rx="10" fill="#1989fa"/><text x="28" y="36" text-anchor="middle" font-size="28" fill="#fff">官</text></svg>' },
+      { name: 'iOS', color: '#1a1a1a', channel: 'ios', available: true, iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56"><rect width="56" height="56" rx="10" fill="#1a1a1a"/><text x="28" y="36" text-anchor="middle" font-size="16" fill="#fff">iOS</text></svg>' },
+      { name: '安卓', color: '#3ddc84', channel: 'android', available: true, iconSvg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56"><rect width="56" height="56" rx="10" fill="#3ddc84"/><text x="28" y="36" text-anchor="middle" font-size="20" fill="#fff">安</text></svg>' },
     ],
     configPath: '/config-pages/game2/config.html',
     statusPath: '',

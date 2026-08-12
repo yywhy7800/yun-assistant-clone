@@ -25,4 +25,11 @@ describe('scriptTypes 注册表', () => {
   it('getScriptType 对未知 id 回退到第一个', () => {
     expect(getScriptType('unknown').id).toBe(scriptTypes[0].id)
   })
+
+  it('一路狂飙类型有 iOS/安卓渠道', () => {
+    const kb = getScriptType('一路狂飙')
+    const channels = kb.channels.map((c) => c.channel)
+    expect(channels).toContain('ios')
+    expect(channels).toContain('android')
+  })
 })
