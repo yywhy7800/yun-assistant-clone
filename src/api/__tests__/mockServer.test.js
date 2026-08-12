@@ -25,13 +25,13 @@ describe('mock 脚本', () => {
     expect(games.has('一路狂飙')).toBe(true)
   })
 
-  it('绑定 game2 新脚本', () => {
+  it('绑定一路狂飙新脚本', () => {
     const res = handleMockRequest('/scripts', {
       method: 'POST',
-      body: JSON.stringify({ gameType: 'game2', channel: 'official', account: 'abc', password: '123' }),
+      body: JSON.stringify({ gameType: '一路狂飙', channel: 'official', account: 'abc', password: '123' }),
     })
     expect(res.success).toBe(true)
-    expect(res.data.script.gameType).toBe('game2')
+    expect(res.data.script.gameType).toBe('一路狂飙')
   })
 
   it('copyOf 复制脚本（确认创建）', () => {

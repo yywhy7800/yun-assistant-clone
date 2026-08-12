@@ -8,7 +8,7 @@ const LS_SCRIPTS = 'mock_scripts'
 const LS_USER = 'mock_user'
 const LS_CONFIGS = 'mock_configs'
 
-/** 初始脚本数据：覆盖两个游戏（gs 小花仙 / game2 新游戏） */
+/** 初始脚本数据：覆盖两个游戏（gs 小花仙 / 一路狂飙） */
 const DEFAULT_SCRIPTS = [
   { id: 1, gameType: 'gs', roleName: '旅行者', server: '天空岛', status: 'running', channel: 'official', account: 'yun001', number: 'NO.1001', expire: '2026-09-12' },
   { id: 2, gameType: 'gs', roleName: '刻晴', server: '天空岛', status: 'stopped', channel: 'bilibili', account: 'yun001', number: 'NO.1002', expire: '2026-08-30' },
