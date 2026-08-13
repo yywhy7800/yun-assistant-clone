@@ -99,6 +99,7 @@ export const promoAPI = {
 export const messageAPI = {
   send: (content) => request('/messages', { method: 'POST', body: JSON.stringify({ content }) }),
   list: () => request('/messages'),
+  notice: () => request('/messages/notice'),
 }
 
 export const adminAPI = {
@@ -111,4 +112,6 @@ export const adminAPI = {
   cards: () => request('/admin/cards'),
   messages: () => request('/admin/messages'),
   replyMessage: (id, reply) => request(`/admin/messages/${id}/reply`, { method: 'POST', body: JSON.stringify({ reply }) }),
+  getNotice: () => request('/admin/notice'),
+  saveNotice: (content) => request('/admin/notice', { method: 'PUT', body: JSON.stringify({ content }) }),
 }

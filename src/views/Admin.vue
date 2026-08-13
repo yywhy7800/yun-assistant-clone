@@ -86,6 +86,15 @@
       <!-- ==================== 留言管理 ==================== -->
       <van-tab title="留言管理">
         <div class="admin-body">
+          <!-- 客服公告编辑 -->
+          <div class="notice-edit">
+            <div class="notice-edit-title">📢 客服公告（用户打开联系客服时自动展示）</div>
+            <van-field v-model="noticeText" type="textarea" rows="3" placeholder="输入公告内容，留空则不显示" maxlength="500" />
+            <van-button type="primary" size="small" block style="margin-top: 8px" @click="saveNotice">
+              保存公告
+            </van-button>
+          </div>
+
           <van-empty v-if="!messages.length" description="暂无留言" />
           <van-cell-group inset v-else>
             <van-cell
@@ -165,6 +174,7 @@ import {
   getAdminScriptsAPI, adminStopScriptAPI, adminSetExpireAPI,
   generateCardsAPI, getCardsAPI,
   getAdminMessagesAPI, adminReplyMessageAPI,
+  getNoticeAPI, saveNoticeAPI,
 } from '../api/mock'
 
 const router = useRouter()
@@ -184,6 +194,7 @@ const sunAmount = ref(0)
 const replyDialogVisible = ref(false)
 const currentMessage = ref(null)
 const replyText = ref('')
+const noticeText = ref('')
 
 // 脚本管理
 const expireDialogVisible = ref(false)
@@ -281,7 +292,18 @@ async function confirmReply() {
   } catch (e) { showFailToast(e.message || '回复失败') }
 }
 
-onMounted(() => { loadUsers(); loadScripts(); loadCards(); loadMessages() })
+// 客服公告
+async function loadNotice() {
+  try { noticeText.value = await getNoticeAPI() } catch (e) { noticeText.value = '' }
+}
+async function saveNotice() {
+  try {
+    await saveNoticeAPI(noticeText.value.trim())
+    showSuccessToast('公告已保存')
+  } catch (e) { showFailToast(e.message || '保存失败') }
+}
+
+onMounted(() => { loadUsers(); loadScripts(); loadCards(); loadMessages(); loadNotice() })
 </script>
 
 <style scoped>
@@ -294,4 +316,6 @@ onMounted(() => { loadUsers(); loadScripts(); loadCards(); loadMessages() })
 .gen-title { font-size: 13px; color: #666; margin-bottom: 6px; }
 .gen-codes { font-size: 12px; color: #333; word-break: break-all; line-height: 1.8; }
 .dialog-tip { font-size: 13px; color: #666; padding: 12px 16px 4px; }
+.notice-edit { background: #fff; padding: 12px; margin: 12px 12px 8px; border-radius: 10px; }
+.notice-edit-title { font-size: 13px; color: #f5a623; font-weight: 600; margin-bottom: 8px; }
 </style>

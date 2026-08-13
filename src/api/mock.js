@@ -45,3 +45,6 @@ export const getCardsAPI = () => adminAPI.cards().then((r) => r.data.cards)
 export const getAdminMessagesAPI = () => adminAPI.messages().then((r) => r.data.messages)
 export const adminReplyMessageAPI = (id, reply) =>
   adminAPI.replyMessage(id, reply).then((r) => ({ success: true, message: r.message }))
+export const getNoticeAPI = () => adminAPI.getNotice().then((r) => r.data.content || '')
+export const saveNoticeAPI = (content) =>
+  adminAPI.saveNotice(content).then((r) => ({ success: true, message: r.message }))

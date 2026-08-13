@@ -296,3 +296,13 @@ def reply_message(mid, reply):
 
 def next_message_id():
     return max([m.get("id", 0) for m in get_messages()], default=0) + 1
+
+
+# ==================== 客服公告（联系客服打开时自动展示） ====================
+def get_notice():
+    return _read_json("notice.json", {}).get("content", "")
+
+
+def save_notice(text):
+    with _lock:
+        _write_json("notice.json", {"content": text})

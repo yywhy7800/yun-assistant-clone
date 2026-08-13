@@ -702,6 +702,36 @@ def admin_reply_message(mid):
     return ok(None, "回复成功")
 
 
+# ==================== 客服公告 ====================
+@api.route("/messages/notice", methods=["GET"])
+def get_notice():
+    """用户读取客服公告（联系客服打开时展示）"""
+    if not auth.current_user():
+        return unauthorized()
+    return ok({"content": store.get_notice()})
+
+
+@api.route("/admin/notice", methods=["GET"])
+def admin_get_notice():
+    """管理员读取客服公告"""
+    admin, err = require_admin()
+    if err:
+        return err
+    return ok({"content": store.get_notice()})
+
+
+@api.route("/admin/notice", methods=["PUT"])
+def admin_save_notice():
+    """管理员编辑客服公告"""
+    admin, err = require_admin()
+    if err:
+        return err
+    body = json_body()
+    content = (body.get("content") or "").strip()
+    store.save_notice(content)
+    return ok({"content": content}, "公告已保存")
+
+
 app.register_blueprint(api, url_prefix="/api")
 
 

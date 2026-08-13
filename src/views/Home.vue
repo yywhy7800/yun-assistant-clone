@@ -568,6 +568,11 @@
     >
       <div class="contact-wrap">
         <div class="contact-msg-list">
+          <!-- 客服公告（打开时自动展示，管理员后台可编辑） -->
+          <div v-if="notice" class="contact-notice">
+            <div class="notice-head">📢 客服公告</div>
+            <div class="notice-body">{{ notice }}</div>
+          </div>
           <van-empty v-if="!myMessages.length" description="暂无留言，有问题随时发" image-size="60" />
           <div v-for="m in myMessages" :key="m.id" class="contact-msg">
             <div class="msg-user">
@@ -966,6 +971,7 @@ const contactServiceVisible = ref(false)
 const messageInput = ref('')
 const myMessages = ref([])
 const sendingMessage = ref(false)
+const notice = ref('')
 
 // 修改密码
 const changePasswordVisible = ref(false)
@@ -1562,7 +1568,7 @@ async function openUpdateLog() {
   }
 }
 
-/** 打开联系客服 → 拉取历史留言 */
+/** 打开联系客服 → 拉取客服公告 + 历史留言 */
 async function openContactService() {
   personalCenterVisible.value = false
   contactServiceVisible.value = true
@@ -1572,6 +1578,12 @@ async function openContactService() {
     myMessages.value = res.data.messages || []
   } catch (e) {
     myMessages.value = []
+  }
+  try {
+    const res = await messageAPI.notice()
+    notice.value = res.data.content || ''
+  } catch (e) {
+    notice.value = ''
   }
 }
 
@@ -2496,4 +2508,9 @@ async function onAddAccountSuccess() {
 .reply-tag { color: #ee0a24; font-weight: 600; }
 .contact-input { display: flex; align-items: flex-end; gap: 8px; padding: 10px 16px; border-top: 1px solid #f2f2f2; }
 .contact-input .van-field { flex: 1; background: #f7f8fa; border-radius: 6px; padding: 6px 10px; }
+
+/* 客服公告 */
+.contact-notice { padding: 10px 12px; margin-bottom: 8px; background: #fff7e6; border-radius: 8px; }
+.notice-head { font-size: 13px; color: #f5a623; font-weight: 600; margin-bottom: 4px; }
+.notice-body { font-size: 13px; color: #666; line-height: 1.6; word-break: break-all; white-space: pre-wrap; }
 </style>
