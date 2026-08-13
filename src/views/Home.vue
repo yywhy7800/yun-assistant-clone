@@ -76,7 +76,7 @@
             <span class="info-label">账号：</span>
             <span class="info-value">{{ script.account }}</span>
             <span class="role-stats" v-if="scriptStats[script.id] && scriptStats[script.id].running">
-              蓝{{ scriptStats[script.id].claimed_q3 }} 紫{{ scriptStats[script.id].claimed_q4 }} 金{{ scriptStats[script.id].claimed_q5 }} 💎{{ scriptStats[script.id].rp_diamond }}
+              剩余{{ scriptStats[script.id].ad_left }}次 蓝{{ scriptStats[script.id].claimed_q3 }} 紫{{ scriptStats[script.id].claimed_q4 }} 金{{ scriptStats[script.id].claimed_q5 }} 💎{{ scriptStats[script.id].rp_diamond }}
             </span>
           </div>
           <div class="info-item">
