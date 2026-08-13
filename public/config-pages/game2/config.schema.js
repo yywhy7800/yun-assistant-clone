@@ -26,7 +26,7 @@ window.CONFIG_SCHEMA = {
     "triple": {
       "description": "三倍芯片",
       "properties": {
-        "autoTriple": {"type": "boolean", "description": "自动刷三倍", "default": false},
+        "autoTriple": {"type": "boolean", "description": "自动刷三倍", "default": false, "exclusiveWith": "redpocket_autoRedpocket"},
         "tripleLevel": {"type": "integer", "description": "三倍关卡", "default": 211, "min": 1, "dependsOn": "autoTriple"},
         "tripleThreshold": {
           "type": "select", "description": "领取阈值", "default": "q4", "dependsOn": "autoTriple",
@@ -43,7 +43,7 @@ window.CONFIG_SCHEMA = {
     "redpocket": {
       "description": "抢红包（世界）",
       "properties": {
-        "autoRedpocket": {"type": "boolean", "description": "自动抢红包", "default": false},
+        "autoRedpocket": {"type": "boolean", "description": "自动抢红包", "default": false, "exclusiveWith": "triple_autoTriple"},
         "rpTarget": {"type": "integer", "description": "目标红包数", "default": 10, "min": 1, "max": 10, "dependsOn": "autoRedpocket"},
         "rpDiamond": {"type": "display", "description": "累计钻石", "value": "0"}
       }

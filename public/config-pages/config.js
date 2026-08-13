@@ -624,7 +624,18 @@ function generateForm(schema, configData) {
     checkbox.addEventListener('change', (e) => {
       const fieldId = e.target.id;
       const isChecked = e.target.checked;
-      
+
+      // 互斥开关：勾选当前时自动关闭 exclusiveWith 指向的开关（如三倍/抢红包只能开一个）
+      const exclId = e.target.getAttribute('data-exclusive');
+      if (isChecked && exclId) {
+        const exclEl = document.getElementById(exclId);
+        if (exclEl && exclEl.type === 'checkbox') {
+          exclEl.checked = false;
+          // 触发对方 change，同步其依赖字段的显隐联动
+          exclEl.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+
       // 处理orDependsOn字段
       document.querySelectorAll('.field[data-or-depends]').forEach(field => {
         const depIds = field.getAttribute('data-or-depends').split(',').map(s => s.trim());
@@ -673,12 +684,14 @@ function createFieldElement(propSchema, fieldId, label, value, groupProps = {}) 
         (Array.isArray(prop.dependsOn) && prop.dependsOn.includes(fieldKey))
     );
     const switchClass = hasDependents ? 'switch has-dependents' : 'switch';
-    
+    // 互斥开关：exclusiveWith 指向互斥的另一开关 fieldId（勾选时自动关闭对方）
+    const exclAttr = propSchema.exclusiveWith ? ` data-exclusive="${propSchema.exclusiveWith}"` : '';
+
     field.innerHTML = `
       <div class="switch-container">
         <label>${label}${helpIcon}</label>
         <label class="${switchClass}">
-          <input type="checkbox" id="${fieldId}" ${(value === null || value) ? 'checked' : ''}>
+          <input type="checkbox" id="${fieldId}"${exclAttr} ${(value === null || value) ? 'checked' : ''}>
           <span class="switch-slider"></span>
         </label>
       </div>
