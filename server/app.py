@@ -8,10 +8,14 @@ import datetime
 import os
 import sys
 
-# 引用 web_panel 脚本核心目录（clear_core/triple_core 与其同目录才能 import）
-_WEB_PANEL = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                          "..", "..", ".project_context", "explore", "game-reverse",
-                          "tools", "web_panel")
+# 引用脚本核心目录（clear_core/triple_core）：部署包用 server/core/ 自包含，本地回退 web_panel
+_core_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "core")
+if os.path.isdir(_core_dir):
+    _WEB_PANEL = _core_dir
+else:
+    _WEB_PANEL = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "..", "..", ".project_context", "explore", "game-reverse",
+                              "tools", "web_panel")
 sys.path.insert(0, _WEB_PANEL)
 
 from flask import Flask, Blueprint, request, jsonify, send_from_directory
