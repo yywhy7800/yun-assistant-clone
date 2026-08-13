@@ -983,6 +983,10 @@ async function refreshRuntimeStats() {
     try {
       const res = await scriptAPI.runtimeStats(s.id)
       scriptStats[s.id] = res.data
+      // 任务已结束（后端 status 已置 stopped），本地同步卡片状态，避免一直显示"运行中"
+      if (!res.data.running && s.status === 'running') {
+        s.status = 'stopped'
+      }
     } catch (e) {
       // 静默失败，保留上次统计
     }
