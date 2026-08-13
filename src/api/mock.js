@@ -42,3 +42,6 @@ export const adminSetExpireAPI = (id, expire) =>
 export const generateCardsAPI = (amount, count) =>
   adminAPI.cardsGenerate(amount, count).then((r) => ({ success: true, message: r.message, data: r.data }))
 export const getCardsAPI = () => adminAPI.cards().then((r) => r.data.cards)
+export const getAdminMessagesAPI = () => adminAPI.messages().then((r) => r.data.messages)
+export const adminReplyMessageAPI = (id, reply) =>
+  adminAPI.replyMessage(id, reply).then((r) => ({ success: true, message: r.message }))

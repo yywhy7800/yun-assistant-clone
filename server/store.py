@@ -268,3 +268,31 @@ def mark_card_used(code, username):
                 c["used_at"] = now_str()
                 break
         _write_json("cards.json", cards)
+
+
+# ==================== messages（在线留言） ====================
+def get_messages():
+    return _read_json("messages.json", [])
+
+
+def add_message(msg):
+    with _lock:
+        msgs = get_messages()
+        msgs.append(msg)
+        _write_json("messages.json", msgs)
+
+
+def reply_message(mid, reply):
+    with _lock:
+        msgs = get_messages()
+        for m in msgs:
+            if m.get("id") == mid:
+                m["reply"] = reply
+                m["replied"] = True
+                m["reply_at"] = now_str()
+                break
+        _write_json("messages.json", msgs)
+
+
+def next_message_id():
+    return max([m.get("id", 0) for m in get_messages()], default=0) + 1

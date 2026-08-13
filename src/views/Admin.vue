@@ -82,6 +82,32 @@
           </van-cell-group>
         </div>
       </van-tab>
+
+      <!-- ==================== 留言管理 ==================== -->
+      <van-tab title="留言管理">
+        <div class="admin-body">
+          <van-empty v-if="!messages.length" description="暂无留言" />
+          <van-cell-group inset v-else>
+            <van-cell
+              v-for="m in messages"
+              :key="m.id"
+              :title="`${m.username}（${m.created_at}）`"
+              :label="m.content"
+            >
+              <template #value>
+                <van-tag :type="m.replied ? 'success' : 'danger'">
+                  {{ m.replied ? '已回复' : '待回复' }}
+                </van-tag>
+              </template>
+              <template #extra>
+                <van-button size="mini" :type="m.replied ? 'default' : 'primary'" plain @click="openReply(m)">
+                  {{ m.replied ? '查看/修改' : '回复' }}
+                </van-button>
+              </template>
+            </van-cell>
+          </van-cell-group>
+        </div>
+      </van-tab>
     </van-tabs>
 
     <!-- 调整小太阳 dialog -->
@@ -113,6 +139,20 @@
         <van-field v-model="expireValue" label="到期时间" placeholder="YYYY-MM-DD HH:MM:SS" />
       </div>
     </van-dialog>
+
+    <!-- 回复留言 dialog -->
+    <van-dialog
+      v-model:show="replyDialogVisible"
+      title="回复留言"
+      show-cancel-button
+      confirm-button-text="发送回复"
+      @confirm="confirmReply"
+    >
+      <div class="dialog-tip">用户：{{ currentMessage?.username }} — {{ currentMessage?.content }}</div>
+      <div style="padding: 0 16px 12px;">
+        <van-field v-model="replyText" type="textarea" rows="3" placeholder="输入回复内容" maxlength="500" />
+      </div>
+    </van-dialog>
   </div>
 </template>
 
@@ -124,6 +164,7 @@ import {
   getAdminUsersAPI, adjustUserSunAPI,
   getAdminScriptsAPI, adminStopScriptAPI, adminSetExpireAPI,
   generateCardsAPI, getCardsAPI,
+  getAdminMessagesAPI, adminReplyMessageAPI,
 } from '../api/mock'
 
 const router = useRouter()
@@ -132,11 +173,17 @@ const activeTab = ref(0)
 const users = ref([])
 const scripts = ref([])
 const cards = ref([])
+const messages = ref([])
 
 // 用户管理
 const sunDialogVisible = ref(false)
 const currentUser = ref(null)
 const sunAmount = ref(0)
+
+// 留言管理
+const replyDialogVisible = ref(false)
+const currentMessage = ref(null)
+const replyText = ref('')
 
 // 脚本管理
 const expireDialogVisible = ref(false)
@@ -216,7 +263,25 @@ function formatExpire(expire) {
 function formatLastRun(t) { return t ? t : '从未运行' }
 function goBack() { router.push({ name: 'Home' }) }
 
-onMounted(() => { loadUsers(); loadScripts(); loadCards() })
+// 留言管理
+async function loadMessages() {
+  try { messages.value = await getAdminMessagesAPI() } catch (e) { showFailToast(e.message || '加载失败') }
+}
+function openReply(m) {
+  currentMessage.value = m
+  replyText.value = m.reply || ''
+  replyDialogVisible.value = true
+}
+async function confirmReply() {
+  if (!replyText.value.trim()) { showFailToast('请输入回复内容'); return }
+  try {
+    await adminReplyMessageAPI(currentMessage.value.id, replyText.value.trim())
+    showSuccessToast('回复成功')
+    await loadMessages()
+  } catch (e) { showFailToast(e.message || '回复失败') }
+}
+
+onMounted(() => { loadUsers(); loadScripts(); loadCards(); loadMessages() })
 </script>
 
 <style scoped>

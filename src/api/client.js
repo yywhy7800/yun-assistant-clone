@@ -96,6 +96,11 @@ export const promoAPI = {
   rewards: () => request('/promo/rewards'),
 }
 
+export const messageAPI = {
+  send: (content) => request('/messages', { method: 'POST', body: JSON.stringify({ content }) }),
+  list: () => request('/messages'),
+}
+
 export const adminAPI = {
   users: () => request('/admin/users'),
   userSun: (id, amount) => request(`/admin/users/${id}/sun`, { method: 'PUT', body: JSON.stringify({ amount }) }),
@@ -104,4 +109,6 @@ export const adminAPI = {
   setScriptExpire: (id, expire) => request(`/admin/scripts/${id}/expire`, { method: 'PUT', body: JSON.stringify({ expire }) }),
   cardsGenerate: (amount, count) => request('/admin/cards/generate', { method: 'POST', body: JSON.stringify({ amount, count }) }),
   cards: () => request('/admin/cards'),
+  messages: () => request('/admin/messages'),
+  replyMessage: (id, reply) => request(`/admin/messages/${id}/reply`, { method: 'POST', body: JSON.stringify({ reply }) }),
 }

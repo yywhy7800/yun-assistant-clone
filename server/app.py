@@ -647,6 +647,61 @@ def admin_cards():
     return ok({"cards": cards})
 
 
+# ==================== 在线留言（客服） ====================
+@api.route("/messages", methods=["POST"])
+def send_message():
+    """用户发留言给客服"""
+    user = auth.current_user()
+    if not user:
+        return unauthorized()
+    body = json_body()
+    content = (body.get("content") or "").strip()
+    if not content:
+        return fail("留言内容不能为空")
+    if len(content) > 500:
+        return fail("留言内容过长（最多 500 字）")
+    msg = {"id": store.next_message_id(), "user_id": user["id"],
+           "username": user["username"], "content": content,
+           "created_at": store.now_str(), "replied": False,
+           "reply": "", "reply_at": ""}
+    store.add_message(msg)
+    return ok(msg, "留言已发送")
+
+
+@api.route("/messages", methods=["GET"])
+def list_my_messages():
+    """用户查看自己的留言（含客服回复）"""
+    user = auth.current_user()
+    if not user:
+        return unauthorized()
+    msgs = [m for m in store.get_messages() if m.get("user_id") == user["id"]]
+    return ok({"messages": list(reversed(msgs))})
+
+
+@api.route("/admin/messages", methods=["GET"])
+def admin_messages():
+    """管理员查看所有留言"""
+    admin, err = require_admin()
+    if err:
+        return err
+    msgs = list(reversed(store.get_messages()))  # 新的在前
+    return ok({"messages": msgs})
+
+
+@api.route("/admin/messages/<int:mid>/reply", methods=["POST"])
+def admin_reply_message(mid):
+    """管理员回复留言"""
+    admin, err = require_admin()
+    if err:
+        return err
+    body = json_body()
+    reply = (body.get("reply") or "").strip()
+    if not reply:
+        return fail("回复内容不能为空")
+    store.reply_message(mid, reply)
+    return ok(None, "回复成功")
+
+
 app.register_blueprint(api, url_prefix="/api")
 
 

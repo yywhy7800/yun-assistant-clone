@@ -558,19 +558,40 @@
       </div>
     </van-dialog>
 
-    <!-- ==================== 联系客服 dialog ==================== -->
+    <!-- ==================== 联系客服（在线留言） ==================== -->
     <van-dialog
       v-model:show="contactServiceVisible"
       title="联系客服"
       :show-confirm-button="false"
       closeable
-      :style="{ width: '90%' }"
+      :style="{ width: '92%' }"
     >
-      <div style="padding: 8px 0;">
-        <van-cell title="客服" value="官方客服" />
-        <van-cell title="微信号" value="yywhy7800" />
-        <div style="padding: 12px 16px; text-align: center;">
-          <van-button size="small" type="primary" @click="handleCopyWechat">复制微信号</van-button>
+      <div class="contact-wrap">
+        <div class="contact-msg-list">
+          <van-empty v-if="!myMessages.length" description="暂无留言，有问题随时发" image-size="60" />
+          <div v-for="m in myMessages" :key="m.id" class="contact-msg">
+            <div class="msg-user">
+              <span class="msg-author">{{ m.username }}</span>
+              <span class="msg-time">{{ m.created_at }}</span>
+            </div>
+            <div class="msg-content">{{ m.content }}</div>
+            <div v-if="m.replied" class="msg-reply">
+              <span class="reply-tag">客服回复</span> {{ m.reply }}
+              <span class="msg-time">（{{ m.reply_at }}）</span>
+            </div>
+          </div>
+        </div>
+        <div class="contact-input">
+          <van-field
+            v-model="messageInput"
+            type="textarea"
+            rows="2"
+            placeholder="请输入你想咨询的问题…"
+            maxlength="500"
+          />
+          <van-button size="small" type="primary" :loading="sendingMessage" @click="handleSendMessage">
+            发送
+          </van-button>
         </div>
       </div>
     </van-dialog>
@@ -756,7 +777,7 @@ import {
   purchaseScriptAPI,
 } from '../api/mock.js'
 import AddAccountForm from '../components/AddAccountForm.vue'
-import { authAPI, billingAPI, cardAPI, contentAPI, promoAPI, scriptAPI, sunAPI } from '../api/client'
+import { authAPI, billingAPI, cardAPI, contentAPI, promoAPI, scriptAPI, sunAPI, messageAPI } from '../api/client'
 import { getScriptType } from '../config/scriptTypes'
 
 const router = useRouter()
@@ -940,8 +961,11 @@ const promoEnabled = ref(false)
 const updateLogVisible = ref(false)
 const updateLogs = ref([])
 
-// 联系客服
+// 联系客服（在线留言）
 const contactServiceVisible = ref(false)
+const messageInput = ref('')
+const myMessages = ref([])
+const sendingMessage = ref(false)
 
 // 修改密码
 const changePasswordVisible = ref(false)
@@ -1538,23 +1562,38 @@ async function openUpdateLog() {
   }
 }
 
-/** 打开联系客服 */
-function openContactService() {
+/** 打开联系客服 → 拉取历史留言 */
+async function openContactService() {
   personalCenterVisible.value = false
   contactServiceVisible.value = true
+  messageInput.value = ''
+  try {
+    const res = await messageAPI.list()
+    myMessages.value = res.data.messages || []
+  } catch (e) {
+    myMessages.value = []
+  }
 }
 
-/** 复制微信号 */
-function handleCopyWechat() {
-  const wechat = 'yywhy7800'
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(wechat).then(() => {
-      showSuccessToast('微信号已复制：' + wechat)
-    }).catch(() => {
-      showToast('微信号：' + wechat)
-    })
-  } else {
-    showToast('微信号：' + wechat)
+/** 发送留言 */
+async function handleSendMessage() {
+  const content = messageInput.value.trim()
+  if (!content) {
+    showToast('请输入留言内容')
+    return
+  }
+  sendingMessage.value = true
+  try {
+    await messageAPI.send(content)
+    messageInput.value = ''
+    showSuccessToast('留言已发送')
+    // 重新拉取留言列表
+    const res = await messageAPI.list()
+    myMessages.value = res.data.messages || []
+  } catch (e) {
+    showFailToast(e.message || '发送失败')
+  } finally {
+    sendingMessage.value = false
   }
 }
 
@@ -2444,4 +2483,17 @@ async function onAddAccountSuccess() {
 .confirm-row .c-label { color: #999; }
 .form-submit { padding: 20px 16px; }
 .form-submit .van-button { height: 48px; font-size: 16px; }
+
+/* 联系客服（在线留言） */
+.contact-wrap { display: flex; flex-direction: column; max-height: 60vh; }
+.contact-msg-list { flex: 1; overflow-y: auto; padding: 8px 16px; min-height: 120px; }
+.contact-msg { padding: 10px 0; border-bottom: 1px solid #f2f2f2; }
+.msg-user { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.msg-author { font-size: 13px; color: #667eea; font-weight: 600; }
+.msg-time { font-size: 11px; color: #bbb; }
+.msg-content { font-size: 14px; color: #333; line-height: 1.6; word-break: break-all; }
+.msg-reply { margin-top: 8px; padding: 8px 10px; background: #f7f8fa; border-radius: 6px; font-size: 13px; color: #333; line-height: 1.5; word-break: break-all; }
+.reply-tag { color: #ee0a24; font-weight: 600; }
+.contact-input { display: flex; align-items: flex-end; gap: 8px; padding: 10px 16px; border-top: 1px solid #f2f2f2; }
+.contact-input .van-field { flex: 1; background: #f7f8fa; border-radius: 6px; padding: 6px 10px; }
 </style>
