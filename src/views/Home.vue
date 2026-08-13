@@ -56,18 +56,20 @@
             <div class="role-info">
               <div class="role-name">{{ script.roleName }}</div>
               <div class="server">{{ script.server }}</div>
-              <div class="role-stats" v-if="scriptStats[script.id] && scriptStats[script.id].running">
-                <span class="stat-item">蓝{{ scriptStats[script.id].claimed_q3 }}·紫{{ scriptStats[script.id].claimed_q4 }}·金{{ scriptStats[script.id].claimed_q5 }}</span>
-                <span class="stat-item">💎{{ scriptStats[script.id].rp_diamond }}</span>
-              </div>
             </div>
           </div>
-          <van-tag
-            :type="script.status === 'running' ? 'success' : 'danger'"
-            size="medium"
-          >
-            {{ script.status === 'running' ? '运行中' : '已停止' }}
-          </van-tag>
+          <div class="header-right">
+            <van-tag
+              :type="script.status === 'running' ? 'success' : 'danger'"
+              size="medium"
+            >
+              {{ script.status === 'running' ? '运行中' : '已停止' }}
+            </van-tag>
+            <div class="role-stats" v-if="scriptStats[script.id] && scriptStats[script.id].running">
+              <div class="stat-item stat-chip">蓝{{ scriptStats[script.id].claimed_q3 }} 紫{{ scriptStats[script.id].claimed_q4 }} 金{{ scriptStats[script.id].claimed_q5 }}</div>
+              <div class="stat-item stat-diamond">💎 {{ scriptStats[script.id].rp_diamond }}</div>
+            </div>
+          </div>
         </div>
 
         <!-- 卡片内容：详细信息 -->
@@ -1878,22 +1880,35 @@ async function onAddAccountSuccess() {
   margin-top: 2px;
 }
 
-/* 首页运行统计（芯片/钻石） */
+/* 卡片右侧（状态标签 + 运行统计） */
+.header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+/* 首页运行统计（芯片/钻石，放大居右） */
 .role-stats {
   display: flex;
-  gap: 6px;
-  margin-top: 5px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
 }
 
 .stat-item {
-  font-size: 11px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
   color: #b76e00;
   background: #fff4e0;
-  border-radius: 3px;
-  padding: 0 5px;
+  border-radius: 4px;
+  padding: 2px 8px;
   white-space: nowrap;
+}
+
+.stat-diamond {
+  color: #e08a00;
 }
 
 
