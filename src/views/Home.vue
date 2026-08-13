@@ -1050,7 +1050,7 @@ function openConfigPanel(script) {
   const type = getScriptType(script.gameType)
   const base = (type && type.configPath) || '/config-pages/config.html'
   // 加时间戳防缓存，确保每次打开都是新加载
-  configIframeSrc.value = base + '?v=2.0.130&_t=' + Date.now()
+  configIframeSrc.value = base + '?v=2.0.140&_t=' + Date.now()
   configPanelVisible.value = true
 }
 
