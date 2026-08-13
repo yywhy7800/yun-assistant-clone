@@ -14,7 +14,7 @@ _WEB_PANEL = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                           "tools", "web_panel")
 sys.path.insert(0, _WEB_PANEL)
 
-from flask import Flask, Blueprint, request, jsonify
+from flask import Flask, Blueprint, request, jsonify, send_from_directory
 
 import store
 import auth
@@ -648,6 +648,30 @@ def game_state_placeholder(sid):
     return jsonify({"success": True, "message": "ok",
                     "data": {"code": 404, "scriptId": sid, "land": {"details": []},
                              "items": {}, "statistics": {}}})
+
+
+# ==================== 前端静态托管（单端口部署：Flask 直接 serve dist/） ====================
+DIST_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "dist"))
+
+
+@app.route("/")
+def serve_index():
+    return send_from_directory(DIST_DIR, "index.html")
+
+
+@app.route("/assets/<path:filename>")
+def serve_assets(filename):
+    return send_from_directory(os.path.join(DIST_DIR, "assets"), filename)
+
+
+@app.route("/config-pages/<path:filename>")
+def serve_config_pages(filename):
+    return send_from_directory(os.path.join(DIST_DIR, "config-pages"), filename)
+
+
+@app.route("/status-pages/<path:filename>")
+def serve_status_pages(filename):
+    return send_from_directory(os.path.join(DIST_DIR, "status-pages"), filename)
 
 
 if __name__ == "__main__":
