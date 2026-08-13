@@ -720,7 +720,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast, showDialog, showSuccessToast, showFailToast, showLoadingToast, closeToast } from 'vant'
 import {
@@ -1085,6 +1085,23 @@ function openLogPanel(script) {
   fetchLogs()
 }
 
+// 日志自动刷新：面板打开时每 3 秒静默轮询，实时展示脚本运行日志；关闭面板即停止
+let logRefreshTimer = null
+watch(logPanelVisible, (visible) => {
+  if (visible) {
+    clearInterval(logRefreshTimer)
+    logRefreshTimer = setInterval(() => {
+      if (panelScript.value && !document.hidden) fetchLogs(true)
+    }, 3000)
+  } else {
+    clearInterval(logRefreshTimer)
+    logRefreshTimer = null
+  }
+})
+onBeforeUnmount(() => {
+  if (logRefreshTimer) clearInterval(logRefreshTimer)
+})
+
 /** 打开状态面板 — iframe 加载原站 status.html */
 function openStatusPanel(script) {
   panelScript.value = script
@@ -1126,7 +1143,7 @@ function handleImportConfig() {
 let logReqSeq = 0 // 请求序号：仅接受最新一次请求的响应，防止慢响应覆盖新数据
 
 /** 从后端拉取当前面板脚本的日志（date + search 作为查询参数传后端） */
-async function fetchLogs() {
+async function fetchLogs(silent = false) {
   if (!panelScript.value) return 'stale'
   const seq = ++logReqSeq
   const id = panelScript.value.id
@@ -1139,7 +1156,7 @@ async function fetchLogs() {
     return true
   } catch (e) {
     if (seq !== logReqSeq) return 'stale'
-    showFailToast(e.message || '日志加载失败')
+    if (!silent) showFailToast(e.message || '日志加载失败') // 自动轮询静默失败，避免刷屏
     return false
   }
 }
