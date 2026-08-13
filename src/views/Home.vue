@@ -1337,7 +1337,7 @@ async function handlePurchase() {
 /** 到期时间显示：空 → "未开通"，永久卡 → "永久"，否则显示原值（后端已含分秒） */
 function formatExpire(expire) {
   if (!expire) return '未开通'
-  if (expire.indexOf('9999-12-31') === 0) return '永久'
+  if (expire.indexOf('2099-12-30') === 0) return '永久'
   return expire
 }
 

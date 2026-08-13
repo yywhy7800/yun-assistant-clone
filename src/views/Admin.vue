@@ -210,7 +210,7 @@ async function generateCards() {
 
 function formatExpire(expire) {
   if (!expire) return '未开通'
-  if (expire.indexOf('9999-12-31') === 0) return '永久'
+  if (expire.indexOf('2099-12-30') === 0) return '永久'
   return expire
 }
 function goBack() { router.push({ name: 'Home' }) }

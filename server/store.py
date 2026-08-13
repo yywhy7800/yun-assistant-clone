@@ -214,8 +214,8 @@ def add_days(n, base=None):
 
 def extend_expiry(days, base=None):
     """从 max(当前时间, base 到期) 起延后 days 天，返回 'YYYY-MM-DD HH:MM:SS'（精确到分秒）。
-    base 为空 → 从当前时间起算；兼容旧 YYYY-MM-DD 格式；已是永久（9999-12-31）则原样返回。"""
-    if base and base.startswith("9999-12-31"):
+    base 为空 → 从当前时间起算；兼容旧 YYYY-MM-DD 格式；已是永久（2099-12-30）则原样返回。"""
+    if base and base.startswith("2099-12-30"):
         return base  # 永久卡，不能再延长
     now = datetime.datetime.now()
     start = now

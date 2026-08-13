@@ -87,8 +87,8 @@ MEMBERSHIP_PLANS = {
     "permanent": {"name": "永久卡", "price": 648, "days": None},
 }
 
-# 永久卡到期标记（用极远日期表示，_expire_ok 永远为真）
-PERMANENT_EXPIRE = "9999-12-31 23:59:59"
+# 永久卡到期标记（用 2099-12-30 表示，_expire_ok 永远为真）
+PERMANENT_EXPIRE = "2099-12-30 23:59:59"
 
 
 def _expire_ok(expire):
@@ -379,7 +379,7 @@ def purchase_script(sid):
     plan_info = MEMBERSHIP_PLANS.get(plan)
     if not plan_info:
         return fail("无效的会员卡类型（周卡/月卡/永久卡）")
-    if (script.get("expire") or "").startswith("9999-12-31"):
+    if (script.get("expire") or "").startswith("2099-12-30"):
         return fail("该脚本已开通永久，无需续费")
     cost = plan_info["price"]
     if user.get("sun_balance", 0) < cost:
