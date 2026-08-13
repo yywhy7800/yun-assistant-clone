@@ -54,12 +54,7 @@
               {{ getChannelEmoji(script.channel) }}
             </div>
             <div class="role-info">
-              <div class="role-name-row">
-                <span class="role-name">{{ script.roleName }}</span>
-                <span class="role-stats" v-if="scriptStats[script.id] && scriptStats[script.id].running">
-                  蓝{{ scriptStats[script.id].claimed_q3 }} 紫{{ scriptStats[script.id].claimed_q4 }} 金{{ scriptStats[script.id].claimed_q5 }} 💎{{ scriptStats[script.id].rp_diamond }}
-                </span>
-              </div>
+              <div class="role-name">{{ script.roleName }}</div>
               <div class="server">{{ script.server }}</div>
             </div>
           </div>
@@ -80,6 +75,9 @@
           <div class="info-item">
             <span class="info-label">账号：</span>
             <span class="info-value">{{ script.account }}</span>
+            <span class="role-stats" v-if="scriptStats[script.id] && scriptStats[script.id].running">
+              蓝{{ scriptStats[script.id].claimed_q3 }} 紫{{ scriptStats[script.id].claimed_q4 }} 金{{ scriptStats[script.id].claimed_q5 }} 💎{{ scriptStats[script.id].rp_diamond }}
+            </span>
           </div>
           <div class="info-item">
             <span class="info-label">到期：</span>
@@ -1864,13 +1862,6 @@ async function onAddAccountSuccess() {
   min-width: 0;
 }
 
-.role-name-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 .role-name {
   font-size: 15px;
   font-weight: 600;
@@ -1886,8 +1877,10 @@ async function onAddAccountSuccess() {
   margin-top: 2px;
 }
 
-/* 角色名后方的运行统计（芯片/钻石，放大加粗） */
+/* 账号后方的运行统计（芯片/钻石，放大加粗） */
 .role-stats {
+  display: inline-block;
+  margin-left: 8px;
   font-size: 16px;
   line-height: 20px;
   font-weight: 700;
@@ -1896,6 +1889,7 @@ async function onAddAccountSuccess() {
   border-radius: 4px;
   padding: 1px 8px;
   white-space: nowrap;
+  vertical-align: middle;
 }
 
 
