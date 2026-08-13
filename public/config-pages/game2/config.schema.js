@@ -36,8 +36,6 @@ window.CONFIG_SCHEMA = {
             {"value": "q5", "label": "Q5 金"}
           ]
         },
-        "adLeft": {"type": "display", "description": "剩余3倍次数", "value": "查询中…"},
-        "tripleStats": {"type": "display", "description": "本次已领", "value": "蓝 0 · 紫 0 · 金 0"}
       }
     },
     "redpocket": {
@@ -45,7 +43,6 @@ window.CONFIG_SCHEMA = {
       "properties": {
         "autoRedpocket": {"type": "boolean", "description": "自动抢红包", "default": false, "exclusiveWith": "triple_autoTriple"},
         "rpTarget": {"type": "integer", "description": "目标红包数", "default": 10, "min": 1, "max": 10, "dependsOn": "autoRedpocket"},
-        "rpDiamond": {"type": "display", "description": "累计钻石", "value": "0"}
       }
     }
   }

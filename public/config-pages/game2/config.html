@@ -59,21 +59,7 @@
       const script = document.createElement('script');
       script.src = `../config.js?v=${version}`;
       script.onload = function() {
-        // 统计轮询：每 3 秒从父窗口拉取运行统计，更新 display
-        try {
-          if (window.parent && window.parent.getRuntimeStats) {
-            window.setInterval(function () {
-              window.parent.getRuntimeStats().then(function (stats) {
-                if (!stats) return;
-                if (window.setDisplayValue) {
-                  window.setDisplayValue('triple_adLeft', stats.ad_left !== undefined ? stats.ad_left + ' 次' : '查询中…');
-                  window.setDisplayValue('triple_tripleStats', '蓝 ' + (stats.claimed_q3 || 0) + ' · 紫 ' + (stats.claimed_q4 || 0) + ' · 金 ' + (stats.claimed_q5 || 0));
-                  window.setDisplayValue('redpocket_rpDiamond', stats.rp_diamond !== undefined ? String(stats.rp_diamond) : '0');
-                }
-              });
-            }, 3000);
-          }
-        } catch (e) {}
+        // 运行统计已移至首页卡片展示，配置面板不再轮询
       };
       document.body.appendChild(script);
     };

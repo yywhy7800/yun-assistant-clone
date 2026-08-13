@@ -56,6 +56,10 @@
             <div class="role-info">
               <div class="role-name">{{ script.roleName }}</div>
               <div class="server">{{ script.server }}</div>
+              <div class="role-stats" v-if="scriptStats[script.id] && scriptStats[script.id].running">
+                <span class="stat-item">蓝{{ scriptStats[script.id].claimed_q3 }}·紫{{ scriptStats[script.id].claimed_q4 }}·金{{ scriptStats[script.id].claimed_q5 }}</span>
+                <span class="stat-item">💎{{ scriptStats[script.id].rp_diamond }}</span>
+              </div>
             </div>
           </div>
           <van-tag
@@ -954,6 +958,30 @@ const statusIframeSrc = ref('')
 
 // ==================== 初始化 ====================
 
+// ==================== 首页运行统计（3 秒轮询，卡片展示芯片/钻石） ====================
+const scriptStats = reactive({})
+
+/** 轮询所有脚本的 runtime-stats，供首页卡片展示 */
+async function refreshRuntimeStats() {
+  const list = scripts.value
+  if (!list.length) return
+  for (const s of list) {
+    try {
+      const res = await scriptAPI.runtimeStats(s.id)
+      scriptStats[s.id] = res.data
+    } catch (e) {
+      // 静默失败，保留上次统计
+    }
+  }
+}
+
+let statsTimer = null
+function startStatsPolling() {
+  clearInterval(statsTimer)
+  statsTimer = setInterval(refreshRuntimeStats, 3000)
+  refreshRuntimeStats()
+}
+
 onMounted(async () => {
   try {
     await refreshScripts()
@@ -961,6 +989,7 @@ onMounted(async () => {
     // 令牌过期时 client.js 已清理登录态并跳转登录，此处静默避免提示与实际原因不符
     if (e.status !== 401) showFailToast('加载失败')
   }
+  startStatsPolling() // 首页脚本运行统计轮询
   // 拉取公告（失败静默，保留默认欢迎语）
   try {
     const res = await contentAPI.announcements()
@@ -1093,6 +1122,7 @@ watch(logPanelVisible, (visible) => {
 })
 onBeforeUnmount(() => {
   if (logRefreshTimer) clearInterval(logRefreshTimer)
+  if (statsTimer) clearInterval(statsTimer)
 })
 
 /** 打开状态面板 — iframe 加载原站 status.html */
@@ -1846,6 +1876,24 @@ async function onAddAccountSuccess() {
   font-size: 13px;
   color: #969799;
   margin-top: 2px;
+}
+
+/* 首页运行统计（芯片/钻石） */
+.role-stats {
+  display: flex;
+  gap: 6px;
+  margin-top: 5px;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  font-size: 11px;
+  line-height: 16px;
+  color: #b76e00;
+  background: #fff4e0;
+  border-radius: 3px;
+  padding: 0 5px;
+  white-space: nowrap;
 }
 
 
