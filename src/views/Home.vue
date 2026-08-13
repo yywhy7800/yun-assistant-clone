@@ -567,10 +567,10 @@
       :style="{ width: '90%' }"
     >
       <div style="padding: 8px 0;">
-        <van-cell title="客服名称" value="官方客服" />
-        <van-cell title="QQ号" value="1234567890" />
+        <van-cell title="客服" value="官方客服" />
+        <van-cell title="微信号" value="yywhy7800" />
         <div style="padding: 12px 16px; text-align: center;">
-          <van-button size="small" type="primary" @click="handleSendMessage">发消息</van-button>
+          <van-button size="small" type="primary" @click="handleCopyWechat">复制微信号</van-button>
         </div>
       </div>
     </van-dialog>
@@ -1544,9 +1544,18 @@ function openContactService() {
   contactServiceVisible.value = true
 }
 
-/** 发送消息 */
-function handleSendMessage() {
-  showToast('消息功能开发中，请通过QQ联系客服')
+/** 复制微信号 */
+function handleCopyWechat() {
+  const wechat = 'yywhy7800'
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(wechat).then(() => {
+      showSuccessToast('微信号已复制：' + wechat)
+    }).catch(() => {
+      showToast('微信号：' + wechat)
+    })
+  } else {
+    showToast('微信号：' + wechat)
+  }
 }
 
 /** 打开修改密码 */
