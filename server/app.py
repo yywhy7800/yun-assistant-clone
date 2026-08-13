@@ -348,6 +348,8 @@ def toggle_script(sid):
     if not ok_start:
         return fail(msg)
     store.set_script_status(sid, "running")
+    # 记录最后运行时间（供后台排查"到期后是否仍能运行"）
+    store.update_script(sid, lambda s: s.__setitem__("last_run_at", store.now_str()))
     return ok({"newStatus": "running"}, "已启动")
 
 
@@ -586,6 +588,7 @@ def admin_scripts():
     for s in store.get_scripts():
         item = public_script(s)
         item["username"] = users.get(s.get("user_id"), "?")
+        item["last_run_at"] = s.get("last_run_at", "")  # 最后运行时间
         result.append(item)
     return ok({"scripts": result})
 

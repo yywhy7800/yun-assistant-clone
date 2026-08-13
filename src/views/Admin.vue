@@ -33,7 +33,7 @@
               v-for="s in scripts"
               :key="s.id"
               :title="`${s.roleName}（${s.username}）`"
-              :label="`${s.account} · ${s.server} · 到期 ${formatExpire(s.expire)}`"
+              :label="`${s.account} · ${s.server} · 到期 ${formatExpire(s.expire)} · 最后运行 ${formatLastRun(s.last_run_at)}`"
             >
               <template #value>
                 <van-tag :type="s.status === 'running' ? 'success' : 'default'">
@@ -213,6 +213,7 @@ function formatExpire(expire) {
   if (expire.indexOf('2099-12-30') === 0) return '永久'
   return expire
 }
+function formatLastRun(t) { return t ? t : '从未运行' }
 function goBack() { router.push({ name: 'Home' }) }
 
 onMounted(() => { loadUsers(); loadScripts(); loadCards() })
