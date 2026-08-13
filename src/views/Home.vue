@@ -639,6 +639,15 @@
             <div class="plan-amount">30 天</div>
             <div class="plan-price">128 ☀️</div>
           </div>
+          <div
+            class="recharge-plan-card"
+            :class="{ active: selectedPlan === 'permanent' }"
+            @click="selectedPlan = 'permanent'"
+          >
+            <div class="plan-name">永久卡</div>
+            <div class="plan-amount">永久</div>
+            <div class="plan-price">648 ☀️</div>
+          </div>
         </div>
         <div class="renew-cost-tip">
           当前余额 {{ sunBalance }} ☀️，确认购买后扣费并延长到期时间
@@ -1297,10 +1306,10 @@ function openRenewDialog() {
   renewVisible.value = true
 }
 
-/** 确认购买会员卡（周卡 38☀️/7天、月卡 128☀️/30天） */
+/** 确认购买会员卡（周卡 38☀️/7天、月卡 128☀️/30天、永久卡 648☀️） */
 async function handlePurchase() {
   const plan = selectedPlan.value
-  const price = plan === 'month' ? 128 : 38
+  const price = { week: 38, month: 128, permanent: 648 }[plan] || 38
   if (price > sunBalance.value) {
     showFailToast(`太阳余额不足，需要 ${price} ☀️`)
     return
@@ -1325,9 +1334,11 @@ async function handlePurchase() {
 
 // ==================== 个人中心相关函数 ====================
 
-/** 到期时间显示：空 → "未开通"，否则显示原值（后端已含分秒） */
+/** 到期时间显示：空 → "未开通"，永久卡 → "永久"，否则显示原值（后端已含分秒） */
 function formatExpire(expire) {
-  return expire ? expire : '未开通'
+  if (!expire) return '未开通'
+  if (expire.indexOf('9999-12-31') === 0) return '永久'
+  return expire
 }
 
 /** 打开个人中心 */
@@ -2233,7 +2244,7 @@ async function onAddAccountSuccess() {
 
 .recharge-plans {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin-top: 8px;
 }

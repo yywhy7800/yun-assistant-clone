@@ -80,11 +80,15 @@ def platform_of(channel):
     return "ios" if channel == "ios" else ("android" if channel == "android" else None)
 
 
-# 会员卡：周卡/月卡（不设天卡）
+# 会员卡：周卡/月卡/永久卡（不设天卡；永久卡 days=None 表示永不过期）
 MEMBERSHIP_PLANS = {
     "week": {"name": "周卡", "price": 38, "days": 7},
     "month": {"name": "月卡", "price": 128, "days": 30},
+    "permanent": {"name": "永久卡", "price": 648, "days": None},
 }
+
+# 永久卡到期标记（用极远日期表示，_expire_ok 永远为真）
+PERMANENT_EXPIRE = "9999-12-31 23:59:59"
 
 
 def _expire_ok(expire):
@@ -374,16 +378,24 @@ def purchase_script(sid):
     plan = body.get("plan")
     plan_info = MEMBERSHIP_PLANS.get(plan)
     if not plan_info:
-        return fail("无效的会员卡类型（周卡/月卡）")
+        return fail("无效的会员卡类型（周卡/月卡/永久卡）")
+    if (script.get("expire") or "").startswith("9999-12-31"):
+        return fail("该脚本已开通永久，无需续费")
     cost = plan_info["price"]
     if user.get("sun_balance", 0) < cost:
         return fail(f"太阳余额不足，需要 {cost} ☀️")
     store.update_user(user["id"], lambda u: u.__setitem__("sun_balance", u["sun_balance"] - cost))
-    new_expire = store.extend_expiry(plan_info["days"], script.get("expire"))
+    days = plan_info["days"]
+    if days is None:
+        new_expire = PERMANENT_EXPIRE  # 永久卡：永不过期
+        tip = "永久有效"
+    else:
+        new_expire = store.extend_expiry(days, script.get("expire"))
+        tip = f"+{days}天"
     store.update_script(sid, lambda s: s.__setitem__("expire", new_expire))
     bal = store.find_user(uid=user["id"])["sun_balance"]
     return ok({"sun_balance": bal, "expire": new_expire},
-              f"{plan_info['name']}购买成功（+{plan_info['days']}天）")
+              f"{plan_info['name']}购买成功（{tip}）")
 
 
 @api.route("/scripts/<int:sid>/config", methods=["GET"])

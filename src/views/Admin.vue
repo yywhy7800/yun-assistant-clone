@@ -208,7 +208,11 @@ async function generateCards() {
   } catch (e) { showFailToast(e.message || '生成失败') }
 }
 
-function formatExpire(expire) { return expire ? expire : '未开通' }
+function formatExpire(expire) {
+  if (!expire) return '未开通'
+  if (expire.indexOf('9999-12-31') === 0) return '永久'
+  return expire
+}
 function goBack() { router.push({ name: 'Home' }) }
 
 onMounted(() => { loadUsers(); loadScripts(); loadCards() })
