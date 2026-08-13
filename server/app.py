@@ -218,17 +218,21 @@ def create_script():
     # 一路狂飙：真实验证账号 + 分配设备指纹
     device_key, device, server = None, None, "默认服务器"
     if game_type == "一路狂飙" and platform:
-        device_key, device = devices.get_or_create_device(account, platform)
         try:
+            device_key, device = devices.get_or_create_device(account, platform)
             if platform == "ios":
                 result = ios_login(account, password, None, device)
             else:
                 result = android_login(account, password, None, device)
-        except Exception:
+        except Exception as e:
+            print(f"[create_script] 账号验证异常: {e!r}")
             result = None
         if result is None:
             return fail("账号验证失败，请检查账号密码")
-        zone = result[2] or {}
+        # 防御：登录返回非 (account, token, zone) 结构时不崩溃
+        zone = result[2] if isinstance(result, (tuple, list)) and len(result) >= 3 else {}
+        if not isinstance(zone, dict):
+            zone = {}
         server = zone.get("name") or "默认服务器"
 
     new_id = store.next_script_id()
@@ -451,6 +455,18 @@ def changelogs():
 
 
 app.register_blueprint(api, url_prefix="/api")
+
+
+@app.errorhandler(Exception)
+def handle_unexpected(e):
+    """捕获未处理异常：traceback 落日志（便于定位），返回统一 JSON，避免前端收到非 JSON 的 500 HTML"""
+    import traceback
+
+    from werkzeug.exceptions import HTTPException
+    if isinstance(e, HTTPException):
+        return e  # 404/401 等按默认处理
+    traceback.print_exc()
+    return jsonify({"success": False, "message": "服务器异常，请稍后重试"}), 500
 
 # /game/state/:id 占位（小花仙状态页请求，本次不接入真实数据）
 @app.route("/game/state/<int:sid>", methods=["GET"])
