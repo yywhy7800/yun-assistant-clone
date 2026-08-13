@@ -528,7 +528,7 @@ def promo_rewards():
 def announcements():
     return ok({"announcements": [
         {"id": 1, "title": "系统公告",
-         "content": "云助手已接入一路狂飙真实脚本（三倍芯片/抢红包），完美通关暂不开放。获取提卡地址请点击头像联系客服。"},
+         "content": "云助手已接入一路狂飙真实脚本（三倍芯片/抢红包），完美通关暂不开放。续费点击头像联系客服获取提卡地址。"},
     ]})
 
 
