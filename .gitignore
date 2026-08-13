@@ -17,3 +17,11 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Server runtime data（本地自用数据不入库）
+server/data/
+server/logs/
+server/.secret
+
+# Python 缓存
+__pycache__/

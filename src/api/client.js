@@ -4,7 +4,7 @@
 import { handleMockRequest } from './mockServer'
 
 const BASE = '/api'
-const USE_MOCK = true // 纯前端演示：true 走本地 mock；接真实后端时改为 false
+const USE_MOCK = false // 真实后端：false 走 /api（localhost:8000，server/ 提供）
 
 function getToken() {
   return localStorage.getItem('yun_token') || ''
