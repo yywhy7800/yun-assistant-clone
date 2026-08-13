@@ -57,7 +57,6 @@
               <div class="role-name">{{ script.roleName }}</div>
               <div class="server">{{ script.server }}</div>
             </div>
-            <span class="game-tag">{{ gameLabel(script.gameType) }}</span>
           </div>
           <van-tag
             :type="script.status === 'running' ? 'success' : 'danger'"
@@ -70,8 +69,8 @@
         <!-- 卡片内容：详细信息 -->
         <div class="card-body">
           <div class="info-item">
-            <span class="info-label">编号：</span>
-            <span class="info-value">{{ script.number }}</span>
+            <span class="info-label">角色：</span>
+            <span class="info-value">{{ script.roleName }}</span>
           </div>
           <div class="info-item">
             <span class="info-label">账号：</span>
@@ -1036,12 +1035,6 @@ function getChannelEmoji(channel) {
   return emojis[channel] || '📱'
 }
 
-/** 游戏标签文案（如 "🌸 小花仙"），未知 gameType 返回空 */
-function gameLabel(gameType) {
-  const t = getScriptType(gameType)
-  return t ? `${t.emoji} ${t.name}` : ''
-}
-
 // ==================== 面板打开/关闭 ====================
 
 /** 打开配置面板 — iframe 加载对应游戏的 config.html */
@@ -1855,17 +1848,6 @@ async function onAddAccountSuccess() {
   margin-top: 2px;
 }
 
-/* 游戏标签 */
-.game-tag {
-  margin-left: 8px;
-  padding: 2px 6px;
-  font-size: 11px;
-  line-height: 16px;
-  color: #667eea;
-  background: #eef0ff;
-  border-radius: 4px;
-  white-space: nowrap;
-}
 
 /* 卡片详情 */
 .card-body {

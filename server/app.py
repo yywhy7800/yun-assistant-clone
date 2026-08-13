@@ -92,6 +92,9 @@ def _task_triple(task, script, platform, password, device, config):
         task.add_log(f"❌ 异常: {e}")
     finally:
         task.stats = dict(stats)
+        if stats.get("nick"):
+            # 任务运行后回传真实角色名，更新 roleName（绑定阶段只有账号名）
+            store.update_script(script["id"], lambda s: s.__setitem__("roleName", stats["nick"]))
         task.add_log("🏁 任务结束")
         task.running = False
         store.set_script_status(script["id"], "stopped")
@@ -100,14 +103,19 @@ def _task_triple(task, script, platform, password, device, config):
 def _task_redpocket(task, script, platform, password, device, config):
     rp = config.get("redpocket", {}) or {}
     target = max(1, min(10, int(rp.get("rpTarget") or 10)))
+    stats = {}
+    task.stats = stats
     task.task_type = "redpocket"
     task.add_log(f"🚀 开始抢红包: 目标 {target} 个 ({platform})")
     try:
         run_redpocket(platform, script["account"], password, target, task.add_log,
-                      task.stop_flag, device)
+                      task.stop_flag, device, stats)
     except Exception as e:
         task.add_log(f"❌ 异常: {e}")
     finally:
+        if stats.get("nick"):
+            # 任务运行后回传真实角色名，更新 roleName（绑定阶段只有账号名）
+            store.update_script(script["id"], lambda s: s.__setitem__("roleName", stats["nick"]))
         task.add_log("🏁 任务结束")
         task.running = False
         store.set_script_status(script["id"], "stopped")
@@ -359,6 +367,12 @@ def script_runtime_stats(sid):
     script = store.find_script(sid, user["id"])
     if not script:
         return fail("脚本不存在")
+    # 任务运行中若已回传真实角色名，顺手同步 roleName（无需等任务结束）
+    task = task_manager.get_task(sid)
+    if task and task.running:
+        nick = task.stats.get("nick")
+        if nick and script.get("roleName") != nick:
+            store.update_script(sid, lambda s: s.__setitem__("roleName", nick))
     return ok(task_manager.runtime_stats(sid))
 
 
