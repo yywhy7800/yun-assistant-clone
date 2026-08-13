@@ -4,6 +4,7 @@
 复用 web_panel 的脚本核心（triple_core / clear_core），多账号并发跑三倍/抢红包。
 通关不开放（前端 schema 已 locked，后端无通关启动接口）。
 """
+import datetime
 import os
 import sys
 
@@ -54,7 +55,7 @@ def unauthorized():
 
 def public_user(u):
     return {"username": u["username"], "vip_level": u.get("vip_level", 0),
-            "sun_balance": u.get("sun_balance", 0)}
+            "sun_balance": u.get("sun_balance", 0), "role": u.get("role", "user")}
 
 
 def public_script(s):
@@ -73,6 +74,43 @@ def public_script(s):
 
 def platform_of(channel):
     return "ios" if channel == "ios" else ("android" if channel == "android" else None)
+
+
+# 会员卡：周卡/月卡（不设天卡）
+MEMBERSHIP_PLANS = {
+    "week": {"name": "周卡", "price": 38, "days": 7},
+    "month": {"name": "月卡", "price": 128, "days": 30},
+}
+
+
+def _expire_ok(expire):
+    """到期是否有效：非空且在有效期之后"""
+    if not expire:
+        return False
+    try:
+        exp = datetime.datetime.strptime(expire, "%Y-%m-%d %H:%M:%S")
+        return exp > datetime.datetime.now()
+    except ValueError:
+        return False
+
+
+def require_admin():
+    """管理员校验，返回 (user, None) 或 (None, 错误响应)"""
+    user = auth.current_user()
+    if not user:
+        return None, unauthorized()
+    if user.get("role") != "admin":
+        return None, fail("无权限", 403)
+    return user, None
+
+
+def ensure_admin():
+    """启动时确保内置 admin 账号存在（admin/admin123）"""
+    if not store.find_user(username="admin"):
+        store.add_user({"id": store.next_user_id(), "username": "admin",
+                        "password_hash": store.hash_password("admin123"),
+                        "sun_balance": 0, "vip_level": 0, "role": "admin",
+                        "created_at": store.now_str()})
 
 
 # ==================== 脚本任务执行（后台线程）====================
@@ -139,7 +177,7 @@ def register():
         return fail("用户名已存在")
     user = {"id": store.next_user_id(), "username": username,
             "password_hash": store.hash_password(password),
-            "sun_balance": 100, "vip_level": 1, "created_at": store.now_str()}
+            "sun_balance": 0, "vip_level": 0, "role": "user", "created_at": store.now_str()}
     store.add_user(user)
     token = auth.create_token(user["id"])
     return ok({"token": token, "user": public_user(user)}, "注册成功")
@@ -251,7 +289,7 @@ def create_script():
         "password_enc": store.encrypt_text(password) if password else "",
         "device_key": device_key,
         "number": f"NO.{1000 + new_id}",
-        "expire": store.add_days(30),
+        "expire": "",  # 未开通，需购买周卡/月卡
         "created_at": store.now_str(),
     }
     store.add_script(script)
@@ -277,6 +315,8 @@ def toggle_script(sid):
     platform = platform_of(script.get("channel"))
     if platform is None:
         return fail("该游戏脚本暂未接入真实运行")
+    if not _expire_ok(script.get("expire")):
+        return fail("脚本未开通或已过期，请先购买周卡或月卡")
 
     config = store.get_config(sid)
     auto_triple = bool(config.get("triple", {}).get("autoTriple"))
@@ -317,8 +357,9 @@ def delete_script(sid):
     return ok(None, "删除成功")
 
 
-@api.route("/scripts/<int:sid>/renew", methods=["POST"])
-def renew_script(sid):
+@api.route("/scripts/<int:sid>/purchase", methods=["POST"])
+def purchase_script(sid):
+    """购买会员卡（周卡 38☀️/7天、月卡 128☀️/30天），延长角色到期时间"""
     user = auth.current_user()
     if not user:
         return unauthorized()
@@ -326,13 +367,19 @@ def renew_script(sid):
     if not script:
         return fail("脚本不存在")
     body = json_body()
-    days = max(1, min(365, int(body.get("days") or 1)))
-    if user.get("sun_balance", 0) < days:
-        return fail("太阳余额不足")
-    store.update_user(user["id"], lambda u: u.__setitem__("sun_balance", u["sun_balance"] - days))
-    store.update_script(sid, lambda s: s.__setitem__("expire", store.add_days(days, s.get("expire"))))
+    plan = body.get("plan")
+    plan_info = MEMBERSHIP_PLANS.get(plan)
+    if not plan_info:
+        return fail("无效的会员卡类型（周卡/月卡）")
+    cost = plan_info["price"]
+    if user.get("sun_balance", 0) < cost:
+        return fail(f"太阳余额不足，需要 {cost} ☀️")
+    store.update_user(user["id"], lambda u: u.__setitem__("sun_balance", u["sun_balance"] - cost))
+    new_expire = store.extend_expiry(plan_info["days"], script.get("expire"))
+    store.update_script(sid, lambda s: s.__setitem__("expire", new_expire))
     bal = store.find_user(uid=user["id"])["sun_balance"]
-    return ok({"sun_balance": bal}, f"已续期 {days} 天")
+    return ok({"sun_balance": bal, "expire": new_expire},
+              f"{plan_info['name']}购买成功（+{plan_info['days']}天）")
 
 
 @api.route("/scripts/<int:sid>/config", methods=["GET"])
@@ -387,7 +434,7 @@ def script_logs(sid):
     return ok({"logs": task_manager.logs(sid)})
 
 
-# ==================== 占位（SaaS 功能简化返回）====================
+# ==================== 卡密 ====================
 @api.route("/cards/redeem", methods=["POST"])
 def card_redeem():
     user = auth.current_user()
@@ -397,9 +444,16 @@ def card_redeem():
     code = (body.get("code") or "").strip()
     if not code:
         return fail("卡密不能为空")
-    store.update_user(user["id"], lambda u: u.__setitem__("sun_balance", u.get("sun_balance", 0) + 50))
+    card = store.find_card(code)
+    if not card:
+        return fail("卡密不存在")
+    if card.get("used"):
+        return fail("卡密已被使用")
+    amount = card.get("amount", 0)
+    store.mark_card_used(code, user["username"])
+    store.update_user(user["id"], lambda u: u.__setitem__("sun_balance", u.get("sun_balance", 0) + amount))
     bal = store.find_user(uid=user["id"])["sun_balance"]
-    return ok({"sun_balance": bal}, "兑换成功")
+    return ok({"sun_balance": bal}, f"兑换成功（+{amount} ☀️）")
 
 
 @api.route("/cards/records", methods=["GET"])
@@ -468,6 +522,112 @@ def changelogs():
     ]})
 
 
+# ==================== 管理后台（需管理员 role=admin） ====================
+@api.route("/admin/users", methods=["GET"])
+def admin_users():
+    admin, err = require_admin()
+    if err:
+        return err
+    scripts = store.get_scripts()
+    result = []
+    for u in store.get_users():
+        count = sum(1 for s in scripts if s.get("user_id") == u["id"])
+        result.append({"id": u["id"], "username": u["username"],
+                       "vip_level": u.get("vip_level", 0),
+                       "sun_balance": u.get("sun_balance", 0),
+                       "role": u.get("role", "user"),
+                       "created_at": u.get("created_at", ""),
+                       "script_count": count})
+    return ok({"users": result})
+
+
+@api.route("/admin/users/<int:uid>/sun", methods=["PUT"])
+def admin_user_sun(uid):
+    admin, err = require_admin()
+    if err:
+        return err
+    target = store.find_user(uid=uid)
+    if not target:
+        return fail("用户不存在")
+    body = json_body()
+    amount = int(body.get("amount") or 0)
+    if amount == 0:
+        return fail("调整金额不能为 0")
+    new_bal = target.get("sun_balance", 0) + amount
+    if new_bal < 0:
+        return fail("扣减后余额不能为负数")
+    store.update_user(uid, lambda u: u.__setitem__("sun_balance", new_bal))
+    return ok({"sun_balance": new_bal}, f"已调整 {'+' if amount > 0 else ''}{amount} ☀️")
+
+
+@api.route("/admin/scripts", methods=["GET"])
+def admin_scripts():
+    admin, err = require_admin()
+    if err:
+        return err
+    users = {u["id"]: u["username"] for u in store.get_users()}
+    result = []
+    for s in store.get_scripts():
+        item = public_script(s)
+        item["username"] = users.get(s.get("user_id"), "?")
+        result.append(item)
+    return ok({"scripts": result})
+
+
+@api.route("/admin/scripts/<int:sid>/stop", methods=["POST"])
+def admin_script_stop(sid):
+    admin, err = require_admin()
+    if err:
+        return err
+    task_manager.stop(sid)
+    store.set_script_status(sid, "stopped")
+    return ok(None, "已停止")
+
+
+@api.route("/admin/scripts/<int:sid>/expire", methods=["PUT"])
+def admin_script_expire(sid):
+    admin, err = require_admin()
+    if err:
+        return err
+    body = json_body()
+    expire = (body.get("expire") or "").strip()
+    if not expire:
+        return fail("到期时间不能为空")
+    store.update_script(sid, lambda s: s.__setitem__("expire", expire))
+    return ok({"expire": expire}, "到期时间已更新")
+
+
+@api.route("/admin/cards/generate", methods=["POST"])
+def admin_cards_generate():
+    admin, err = require_admin()
+    if err:
+        return err
+    import secrets
+    body = json_body()
+    amount = int(body.get("amount") or 0)
+    count = int(body.get("count") or 1)
+    if amount <= 0:
+        return fail("卡密面额必须大于 0")
+    count = max(1, min(500, count))
+    codes = set()
+    while len(codes) < count:
+        codes.add("".join(secrets.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") for _ in range(16)))
+    cards = [{"code": c, "amount": amount, "used": False, "used_by": None,
+              "used_at": None, "created_at": store.now_str()} for c in codes]
+    store.add_cards(cards)
+    return ok({"count": len(cards), "amount": amount, "codes": list(codes)},
+              f"已生成 {len(cards)} 张卡密")
+
+
+@api.route("/admin/cards", methods=["GET"])
+def admin_cards():
+    admin, err = require_admin()
+    if err:
+        return err
+    cards = list(reversed(store.get_cards()))  # 新的在前
+    return ok({"cards": cards})
+
+
 app.register_blueprint(api, url_prefix="/api")
 
 
@@ -492,8 +652,10 @@ def game_state_placeholder(sid):
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    ensure_admin()  # 确保内置 admin/admin123 存在
     print("=" * 50)
     print("  云助手真实后端 (一路狂飙 三倍/抢红包)")
     print("  访问地址: http://localhost:8000")
+    print("  管理后台: admin / admin123")
     print("=" * 50)
     app.run(host="0.0.0.0", port=8000, debug=False)

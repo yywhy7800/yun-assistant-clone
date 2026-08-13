@@ -99,9 +99,9 @@
               <span class="info-label">服务器：</span>
               <span class="info-value">{{ successData.server }}</span>
             </div>
-            <div class="info-row" v-if="successData.expire">
+            <div class="info-row">
               <span class="info-label">到期：</span>
-              <span class="info-value">{{ successData.expire }}</span>
+              <span class="info-value">{{ successData.expire || '未开通' }}</span>
             </div>
             <div class="info-row">
               <span class="info-label">状态：</span>

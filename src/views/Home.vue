@@ -81,7 +81,7 @@
           </div>
           <div class="info-item">
             <span class="info-label">到期：</span>
-            <span class="info-value expire-value">{{ script.expire }}</span>
+            <span class="info-value" :class="script.expire ? 'expire-value' : 'expire-empty'">{{ formatExpire(script.expire) }}</span>
           </div>
         </div>
 
@@ -310,6 +310,7 @@
             </van-cell>
             <van-cell icon="user-circle-o" title="游戏账号管理" is-link @click="openAccountManage" />
             <van-cell icon="gold-coin-o" title="太阳充值" is-link @click="openSunRecharge" />
+            <van-cell v-if="userRole === 'admin'" icon="manager-o" title="管理后台" is-link @click="openAdminPanel" />
             <van-cell icon="send-gift-o" title="阳光传递" is-link @click="openSunTransfer" />
             <van-cell icon="records" title="太阳流水" is-link @click="openSunTransactions" />
             <van-cell icon="share-o" title="推广中心" is-link @click="openPromotionCenter" />
@@ -371,7 +372,7 @@
                 </div>
                 <div class="account-card-info">
                   <div class="account-detail">账号名称: {{ acct.accountName }}</div>
-                  <div class="account-time">服务器: {{ acct.server }} | 到期: {{ acct.expire }}</div>
+                  <div class="account-time">服务器: {{ acct.server }} | 到期: {{ formatExpire(acct.expire) }}</div>
                 </div>
               </div>
               <div class="account-card-actions">
@@ -610,23 +611,37 @@
       </div>
     </van-dialog>
 
-    <!-- ==================== 续期 dialog（按天续费，1 天 1 太阳） ==================== -->
+    <!-- ==================== 购买会员卡 dialog（周卡/月卡，不设天卡） ==================== -->
     <van-dialog
       v-model:show="renewVisible"
-      title="续期脚本"
+      title="购买会员卡"
       show-cancel-button
-      confirm-button-text="确认续期"
-      @confirm="handleRenewConfirm"
+      confirm-button-text="确认购买"
+      @confirm="handlePurchase"
     >
       <div style="padding: 12px 16px;">
-        <van-field
-          v-model="renewDays"
-          type="number"
-          label="续期天数"
-          placeholder="请输入续期天数"
-        />
+        <div class="recharge-plans">
+          <div
+            class="recharge-plan-card"
+            :class="{ active: selectedPlan === 'week' }"
+            @click="selectedPlan = 'week'"
+          >
+            <div class="plan-name">周卡</div>
+            <div class="plan-amount">7 天</div>
+            <div class="plan-price">38 ☀️</div>
+          </div>
+          <div
+            class="recharge-plan-card"
+            :class="{ active: selectedPlan === 'month' }"
+            @click="selectedPlan = 'month'"
+          >
+            <div class="plan-name">月卡</div>
+            <div class="plan-amount">30 天</div>
+            <div class="plan-price">128 ☀️</div>
+          </div>
+        </div>
         <div class="renew-cost-tip">
-          1 天消耗 1 ☀️，本次消耗 {{ renewCost }} ☀️（当前余额 {{ sunBalance }} ☀️）
+          当前余额 {{ sunBalance }} ☀️，确认购买后扣费并延长到期时间
         </div>
       </div>
     </van-dialog>
@@ -729,7 +744,7 @@ import {
   getScriptsAPI,
   toggleScriptAPI,
   deleteScriptAPI,
-  renewScriptAPI,
+  purchaseScriptAPI,
 } from '../api/mock.js'
 import AddAccountForm from '../components/AddAccountForm.vue'
 import { authAPI, billingAPI, cardAPI, contentAPI, promoAPI, scriptAPI, sunAPI } from '../api/client'
@@ -815,13 +830,9 @@ const sunRedeemVisible = ref(false)
 const sunRedeemCode = ref('')
 const redeeming = ref(false)
 
-// 续期弹窗（按天续费，1 天 1 太阳）
+// 购买会员卡弹窗（周卡/月卡，不设天卡）
 const renewVisible = ref(false)
-const renewDays = ref(1)
-const renewCost = computed(() => {
-  const days = Number(renewDays.value)
-  return days >= 1 && days <= 365 ? days : 0
-})
+const selectedPlan = ref('week') // 'week' | 'month'
 
 // 脚本列表
 const scripts = ref([])
@@ -840,6 +851,10 @@ const actionSheetActions = [
 ]
 
 // ==================== 个人中心相关状态 ====================
+
+// 用户角色（管理员标识，来自后端 me 返回的 role）
+const userRole = ref('')
+try { userRole.value = JSON.parse(localStorage.getItem('yun_user') || '{}').role || '' } catch (e) { userRole.value = '' }
 
 // 个人中心主面板
 const personalCenterVisible = ref(false)
@@ -1272,25 +1287,22 @@ async function onActionSelect(action) {
   }
 }
 
-/** 打开续期弹窗（按天续费，1 天 1 太阳） */
+/** 打开购买会员卡弹窗 */
 function openRenewDialog() {
-  renewDays.value = 1
+  selectedPlan.value = 'week'
   renewVisible.value = true
 }
 
-/** 续期确认 */
-async function handleRenewConfirm() {
-  const days = Number(renewDays.value)
-  if (!days || days < 1 || days > 365) {
-    showToast('请输入有效天数（1-365）')
-    return
-  }
-  if (days > sunBalance.value) {
-    showFailToast(`太阳余额不足，需要 ${days} ☀️`)
+/** 确认购买会员卡（周卡 38☀️/7天、月卡 128☀️/30天） */
+async function handlePurchase() {
+  const plan = selectedPlan.value
+  const price = plan === 'month' ? 128 : 38
+  if (price > sunBalance.value) {
+    showFailToast(`太阳余额不足，需要 ${price} ☀️`)
     return
   }
   try {
-    const res = await renewScriptAPI(currentScript.value.id, days)
+    const res = await purchaseScriptAPI(currentScript.value.id, plan)
     // 刷新余额（后端返回扣减后余额）与脚本列表（到期时间更新）
     if (res.data && res.data.sun_balance !== undefined) {
       sunBalance.value = res.data.sun_balance
@@ -1299,9 +1311,9 @@ async function handleRenewConfirm() {
       localStorage.setItem('yun_user', JSON.stringify(stored))
     }
     await refreshScripts()
-    showSuccessToast(`续期成功 ${days} 天（消耗 ${days} ☀️）`)
+    showSuccessToast(res.message || '购买成功')
   } catch (e) {
-    showFailToast(e.message || '续期失败')
+    showFailToast(e.message || '购买失败')
   }
 }
 
@@ -1309,9 +1321,20 @@ async function handleRenewConfirm() {
 
 // ==================== 个人中心相关函数 ====================
 
+/** 到期时间显示：空 → "未开通"，否则显示原值（后端已含分秒） */
+function formatExpire(expire) {
+  return expire ? expire : '未开通'
+}
+
 /** 打开个人中心 */
 function openPersonalCenter() {
   personalCenterVisible.value = true
+}
+
+/** 打开管理后台（仅管理员） */
+function openAdminPanel() {
+  personalCenterVisible.value = false
+  router.push({ name: 'Admin' })
 }
 
 /** 打开游戏兑换码 */
@@ -1916,6 +1939,12 @@ async function onAddAccountSuccess() {
   font-weight: 500;
 }
 
+/* 未开通（到期为空） */
+.expire-empty {
+  color: #ee0a24;
+  font-weight: 600;
+}
+
 /* 操作区 */
 .script-operations {
   display: flex;
@@ -2200,7 +2229,7 @@ async function onAddAccountSuccess() {
 
 .recharge-plans {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   margin-top: 8px;
 }
@@ -2215,9 +2244,17 @@ async function onAddAccountSuccess() {
   transition: all 0.2s;
 }
 
-.recharge-plan-card:active {
+.recharge-plan-card.active {
   border-color: #667eea;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+  background: #f5f7ff;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25);
+}
+
+.plan-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 6px;
 }
 
 .plan-amount {

@@ -203,6 +203,66 @@ def now_str():
     return time.strftime("%Y-%m-%d %H:%M:%S")
 
 
+def now_dt():
+    return datetime.datetime.now()
+
+
 def add_days(n, base=None):
     d = datetime.date.today() if base is None else datetime.date.fromisoformat(base)
     return (d + datetime.timedelta(days=n)).isoformat()
+
+
+def extend_expiry(days, base=None):
+    """从 max(当前时间, base 到期) 起延后 days 天，返回 'YYYY-MM-DD HH:MM:SS'（精确到分秒）。
+    base 为空 → 从当前时间起算；兼容旧 YYYY-MM-DD 格式。"""
+    now = datetime.datetime.now()
+    start = now
+    if base:
+        bd = None
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+            try:
+                bd = datetime.datetime.strptime(base, fmt)
+                break
+            except ValueError:
+                bd = None
+        if bd and bd > now:
+            start = bd
+    return (start + datetime.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+
+
+# ==================== cards（卡密表） ====================
+def get_cards():
+    return _read_json("cards.json", [])
+
+
+def save_cards(cards):
+    with _lock:
+        _write_json("cards.json", cards)
+
+
+def add_cards(cards):
+    with _lock:
+        all_cards = get_cards()
+        all_cards.extend(cards)
+        _write_json("cards.json", all_cards)
+
+
+def find_card(code):
+    code = code.strip().upper()
+    for c in get_cards():
+        if c.get("code", "").upper() == code:
+            return c
+    return None
+
+
+def mark_card_used(code, username):
+    code = code.strip().upper()
+    with _lock:
+        cards = get_cards()
+        for c in cards:
+            if c.get("code", "").upper() == code:
+                c["used"] = True
+                c["used_by"] = username
+                c["used_at"] = now_str()
+                break
+        _write_json("cards.json", cards)

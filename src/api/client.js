@@ -59,7 +59,7 @@ export const scriptAPI = {
   create: (data) => request('/scripts', { method: 'POST', body: JSON.stringify(data) }),
   toggle: (id) => request(`/scripts/${id}/toggle`, { method: 'POST' }),
   remove: (id) => request(`/scripts/${id}`, { method: 'DELETE' }),
-  renew: (id, days) => request(`/scripts/${id}/renew`, { method: 'POST', body: JSON.stringify({ days }) }),
+  purchase: (id, plan) => request(`/scripts/${id}/purchase`, { method: 'POST', body: JSON.stringify({ plan }) }),
   getConfig: (id) => request(`/scripts/${id}/config`),
   saveConfig: (id, config) => request(`/scripts/${id}/config`, { method: 'PUT', body: JSON.stringify({ config }) }),
   runtimeStats: (id) => request(`/scripts/${id}/runtime-stats`),
@@ -94,4 +94,14 @@ export const promoAPI = {
   config: () => request('/promo/config'),
   my: () => request('/promo/my'),
   rewards: () => request('/promo/rewards'),
+}
+
+export const adminAPI = {
+  users: () => request('/admin/users'),
+  userSun: (id, amount) => request(`/admin/users/${id}/sun`, { method: 'PUT', body: JSON.stringify({ amount }) }),
+  scripts: () => request('/admin/scripts'),
+  stopScript: (id) => request(`/admin/scripts/${id}/stop`, { method: 'POST' }),
+  setScriptExpire: (id, expire) => request(`/admin/scripts/${id}/expire`, { method: 'PUT', body: JSON.stringify({ expire }) }),
+  cardsGenerate: (amount, count) => request('/admin/cards/generate', { method: 'POST', body: JSON.stringify({ amount, count }) }),
+  cards: () => request('/admin/cards'),
 }
