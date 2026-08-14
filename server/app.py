@@ -80,6 +80,17 @@ def platform_of(channel):
     return "ios" if channel == "ios" else ("android" if channel == "android" else None)
 
 
+def _remove_script_log(sid):
+    """删除脚本日志文件 logs/{sid}.log（不存在则忽略）"""
+    log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+    log_path = os.path.join(log_dir, f"{sid}.log")
+    if os.path.exists(log_path):
+        try:
+            os.remove(log_path)
+        except OSError:
+            pass
+
+
 # 会员卡：周卡/月卡/永久卡（不设天卡；永久卡 days=None 表示永不过期）
 MEMBERSHIP_PLANS = {
     "week": {"name": "周卡", "price": 38, "days": 7},
@@ -591,6 +602,42 @@ def admin_scripts():
         item["last_run_at"] = s.get("last_run_at", "")  # 最后运行时间
         result.append(item)
     return ok({"scripts": result})
+
+
+@api.route("/admin/users/<int:uid>", methods=["DELETE"])
+def admin_delete_user(uid):
+    admin, err = require_admin()
+    if err:
+        return err
+    target = store.find_user(uid=uid)
+    if not target:
+        return fail("用户不存在")
+    if target.get("username") == "admin":
+        return fail("内置 admin 账号不允许删除")
+    # 收集该用户名下脚本（删除前先记录，供清指纹/日志用）
+    scripts = [s for s in store.get_scripts() if s.get("user_id") == uid]
+    # 逐个停止运行中脚本（协作式停止标记，未运行的忽略）
+    for s in scripts:
+        task_manager.stop(s["id"])
+    # 清理设备指纹（脚本对象存有 device_key，形如 "{platform}:{account}"）
+    devices = store.get_devices()
+    changed = False
+    for s in scripts:
+        key = s.get("device_key")
+        if key and key in devices:
+            del devices[key]
+            changed = True
+    if changed:
+        store.save_devices(devices)
+    # 删除脚本 + 配置 + 日志文件
+    deleted_ids = store.delete_scripts_by_user(uid)
+    for sid in deleted_ids:
+        store.delete_config(sid)
+        _remove_script_log(sid)
+    # 删除用户
+    store.delete_user(uid)
+    return ok({"deleted_scripts": len(deleted_ids)},
+              f"用户「{target['username']}」已删除，共删除 {len(deleted_ids)} 个脚本")
 
 
 @api.route("/admin/scripts/<int:sid>/stop", methods=["POST"])
