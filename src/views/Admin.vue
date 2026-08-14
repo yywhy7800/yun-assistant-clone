@@ -19,6 +19,9 @@
                 <span class="sun-badge">☀️ {{ u.sun_balance }}</span>
                 <span class="script-badge">{{ u.script_count }} 脚本</span>
               </template>
+              <template #extra>
+                <van-button size="mini" type="danger" plain @click.stop="deleteUser(u)">删除</van-button>
+              </template>
             </van-cell>
           </van-cell-group>
           <van-empty v-if="!users.length" description="暂无用户" />
@@ -175,6 +178,7 @@ import {
   generateCardsAPI, getCardsAPI,
   getAdminMessagesAPI, adminReplyMessageAPI,
   getNoticeAPI, saveNoticeAPI,
+  deleteUserAPI,
 } from '../api/mock'
 
 const router = useRouter()
@@ -229,6 +233,22 @@ async function adjustSun() {
     showSuccessToast(res.message || '已调整')
     await loadUsers()
   } catch (e) { showFailToast(e.message || '调整失败') }
+}
+
+function deleteUser(u) {
+  showConfirmDialog({
+    title: '删除账号',
+    message: `确定删除用户「${u.username}」吗？将同时删除其名下 ${u.script_count} 个脚本，不可恢复！`,
+  })
+    .then(async () => {
+      try {
+        const res = await deleteUserAPI(u.id)
+        showSuccessToast(res.message || '已删除')
+        await loadUsers()
+        await loadScripts()
+      } catch (e) { showFailToast(e.message || '删除失败') }
+    })
+    .catch(() => {})
 }
 
 function stopScript(s) {
