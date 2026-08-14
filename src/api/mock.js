@@ -48,3 +48,5 @@ export const adminReplyMessageAPI = (id, reply) =>
 export const getNoticeAPI = () => adminAPI.getNotice().then((r) => r.data.content || '')
 export const saveNoticeAPI = (content) =>
   adminAPI.saveNotice(content).then((r) => ({ success: true, message: r.message }))
+export const deleteUserAPI = (id) =>
+  adminAPI.removeUser(id).then((r) => ({ success: true, message: r.message, data: r.data }))

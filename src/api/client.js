@@ -114,4 +114,5 @@ export const adminAPI = {
   replyMessage: (id, reply) => request(`/admin/messages/${id}/reply`, { method: 'POST', body: JSON.stringify({ reply }) }),
   getNotice: () => request('/admin/notice'),
   saveNotice: (content) => request('/admin/notice', { method: 'PUT', body: JSON.stringify({ content }) }),
+  removeUser: (id) => request(`/admin/users/${id}`, { method: 'DELETE' }),
 }
