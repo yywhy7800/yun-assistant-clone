@@ -165,6 +165,24 @@ def delete_script(sid):
         _write_json("scripts.json", scripts)
 
 
+def delete_scripts_by_user(user_id):
+    """删除某用户名下全部脚本，返回被删脚本 id 列表（带锁，原子写）"""
+    with _lock:
+        scripts = get_scripts()
+        deleted_ids = [s["id"] for s in scripts if s.get("user_id") == user_id]
+        scripts = [s for s in scripts if s.get("user_id") != user_id]
+        _write_json("scripts.json", scripts)
+    return deleted_ids
+
+
+def delete_user(uid):
+    """从 users.json 删除指定用户（带锁，原子写）"""
+    with _lock:
+        users = get_users()
+        users = [u for u in users if u.get("id") != uid]
+        _write_json("users.json", users)
+
+
 # ==================== configs ====================
 def get_configs():
     return _read_json("configs.json", {})
