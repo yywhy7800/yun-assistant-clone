@@ -69,12 +69,12 @@ def admin_delete_user(uid):
     # 2) 逐个停止运行中脚本（协作式停止标记，未运行的忽略）
     for s in scripts:
         task_manager.stop(s["id"])
-    # 3) 清理设备指纹（devices key = "{platform}:{account}"）
+    # 3) 清理设备指纹（脚本对象存有 device_key，形如 "{platform}:{account}"）
     devices = store.get_devices()
     changed = False
     for s in scripts:
-        key = f"{s.get('platform')}:{s.get('account')}"
-        if key in devices:
+        key = s.get("device_key")
+        if key and key in devices:
             del devices[key]
             changed = True
     if changed:
