@@ -36,6 +36,16 @@
 - ✅ 用户自测通过
 - ✅ 部署成功：线上 `43.155.147.214:8000` 服务 active，新端点返回 401（存在）、前端产物更新为最新版；线上 admin 密码已改（符合预期）
 
+## 补充（2026-08-14 晚 · 幂等复核部署）
+
+用户提出"重新部署"后，本次做了复核确认，未改变线上数据：
+
+- 重新打包 `dist + server`（排除 data/logs/.secret/pycache）上传，幂等覆盖 + 重启。
+- 后端 `app.py`/`store.py` MD5 与本地**完全一致**，`DELETE /api/admin/users/<uid>` 接口在线。
+- 前端 `index-CX2kqaB2.js` 含"删除账号"功能，`index.html` 引用正确；**清除了旧版本残留 `index-CGQNAf6A.js`**。
+- 服务 `active`，外部访问 `http://43.155.147.214:8000` 返回 HTTP 200。
+- 线上 `server/data/`、`logs/`、`.secret`、`venv` 均未触碰，数据无损。
+
 ## 说明
 
 - 本地 `server/data/users.json` 在测试/走查期间临时重置过 admin 密码，均已恢复原始备份。
