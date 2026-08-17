@@ -27,6 +27,7 @@ import tasks
 
 from triple_core import run_triple_chip
 from clear_core import run_redpocket, ios_login, android_login
+from shoucai_core import run_shoucai
 
 app = Flask(__name__)
 app.config["JSON_AS_ASCII"] = False
@@ -178,10 +179,36 @@ def _task_redpocket(task, script, platform, password, device, config):
         store.set_script_status(script["id"], "stopped")
 
 
+def _task_shoucai(task, script, platform, password, device, config):
+    sc = config.get("shoucai", {}) or {}
+    try:
+        interval = max(1.0, float(sc.get("shoucaiInterval") or 2))
+    except Exception:
+        interval = 2.0
+    stats = {}
+    task.stats = stats
+    task.task_type = "shoucai"
+    task.add_log(f"🚀 开始收菜: 每 {interval:g} 小时收基地/停车票/码头船 ({platform})")
+    try:
+        run_shoucai(platform, script["account"], password, interval, task.add_log,
+                    task.stop_flag, device, stats)
+    except Exception as e:
+        task.add_log(f"❌ 异常: {e}")
+    finally:
+        if stats.get("nick"):
+            # 任务运行后回传真实角色名，更新 roleName（绑定阶段只有账号名）
+            store.update_script(script["id"], lambda s: s.__setitem__("roleName", stats["nick"]))
+        task.add_log("🏁 任务结束")
+        task.running = False
+        store.set_script_status(script["id"], "stopped")
+
+
 def _build_task_fn(task_type, script, platform, password, device, config):
     if task_type == "triple":
         return lambda task: _task_triple(task, script, platform, password, device, config)
-    return lambda task: _task_redpocket(task, script, platform, password, device, config)
+    if task_type == "redpocket":
+        return lambda task: _task_redpocket(task, script, platform, password, device, config)
+    return lambda task: _task_shoucai(task, script, platform, password, device, config)
 
 
 # ==================== auth ====================
@@ -340,8 +367,13 @@ def toggle_script(sid):
     config = store.get_config(sid)
     auto_triple = bool(config.get("triple", {}).get("autoTriple"))
     auto_redpocket = bool(config.get("redpocket", {}).get("autoRedpocket"))
-    if not auto_triple and not auto_redpocket:
-        return fail("请先在配置中开启功能（三倍芯片或抢红包）")
+    auto_shoucai = bool(config.get("shoucai", {}).get("autoShoucai"))
+    enabled = [t for t, flag in (("triple", auto_triple), ("redpocket", auto_redpocket),
+                                 ("shoucai", auto_shoucai)) if flag]
+    if not enabled:
+        return fail("请先在配置中开启功能（三倍芯片 / 抢红包 / 收菜）")
+    if len(enabled) > 1:
+        return fail("三倍芯片、抢红包、收菜只能同时开启一个，请先关闭其他功能")
 
     password = store.decrypt_text(script["password_enc"]) if script.get("password_enc") else ""
     if not password:
@@ -353,7 +385,7 @@ def toggle_script(sid):
     if not device:
         _, device = devices.get_or_create_device(script["account"], platform)
 
-    task_type = "triple" if auto_triple else "redpocket"
+    task_type = enabled[0]
     ok_start, msg = task_manager.start(
         sid, _build_task_fn(task_type, script, platform, password, device, config))
     if not ok_start:

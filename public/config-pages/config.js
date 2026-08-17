@@ -625,15 +625,17 @@ function generateForm(schema, configData) {
       const fieldId = e.target.id;
       const isChecked = e.target.checked;
 
-      // 互斥开关：勾选当前时自动关闭 exclusiveWith 指向的开关（如三倍/抢红包只能开一个）
+      // 互斥开关：勾选当前时自动关闭 exclusiveWith 指向的开关（支持逗号分隔多个，如三倍/抢红包/收菜只能开一个）
       const exclId = e.target.getAttribute('data-exclusive');
       if (isChecked && exclId) {
-        const exclEl = document.getElementById(exclId);
-        if (exclEl && exclEl.type === 'checkbox') {
-          exclEl.checked = false;
-          // 触发对方 change，同步其依赖字段的显隐联动
-          exclEl.dispatchEvent(new Event('change', { bubbles: true }));
-        }
+        exclId.split(',').forEach(rawId => {
+          const exclEl = document.getElementById(rawId.trim());
+          if (exclEl && exclEl.type === 'checkbox') {
+            exclEl.checked = false;
+            // 触发对方 change，同步其依赖字段的显隐联动
+            exclEl.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        });
       }
 
       // 处理orDependsOn字段

@@ -4,6 +4,7 @@
 不同脚本可并发；同一脚本同时只跑一个任务（防双连接干扰同一账号）
 """
 import os
+import re
 import threading
 import time
 
@@ -39,7 +40,7 @@ class ScriptTask:
         self._parse_stats(msg)
 
     def _parse_stats(self, msg):
-        """从日志提取红包统计（照抄 web_panel app.py 的提取逻辑，但每账号独立）"""
+        """从日志提取红包/收菜统计（照抄 web_panel app.py 的提取逻辑，但每账号独立）"""
         try:
             if "本次已抢" in msg:
                 parts = msg.split("本次已抢")[1].split("个")
@@ -47,6 +48,14 @@ class ScriptTask:
                 if "累计钻石" in msg:
                     dp = msg.split("累计钻石 +")[1].strip()
                     self.stats["rp_diamond"] = int(dp)
+            if "本轮收菜完成" in msg:
+                m = re.search(r"基地 (\d+) / 停车 (\d+) / 码头 (\d+)", msg)
+                if m:
+                    self.stats["shoucai_base"] = int(m.group(1))
+                    self.stats["shoucai_park"] = int(m.group(2))
+                    self.stats["shoucai_wharf"] = int(m.group(3))
+                    self.stats["shoucai_total"] = self.stats["shoucai_base"] + \
+                        self.stats["shoucai_park"] + self.stats["shoucai_wharf"]
         except Exception:
             pass
 
@@ -90,6 +99,7 @@ class TaskManager:
                 "running": False, "ad_left": 0,
                 "claimed_q3": 0, "claimed_q4": 0, "claimed_q5": 0,
                 "rp_diamond": 0, "rp_grabbed": 0,
+                "shoucai_total": 0,
             }
         st = task.stats
         return {
@@ -100,6 +110,7 @@ class TaskManager:
             "claimed_q5": st.get("claimed_q5", 0),
             "rp_diamond": st.get("rp_diamond", 0),
             "rp_grabbed": st.get("rp_grabbed", 0),
+            "shoucai_total": st.get("shoucai_total", 0),
         }
 
     def logs(self, script_id, limit=200):
